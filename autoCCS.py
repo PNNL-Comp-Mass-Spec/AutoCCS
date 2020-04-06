@@ -17,7 +17,7 @@ parser.add_argument(
     help='feature files to determine CCS values')
 
 parser.add_argument(
-    '--framemeta_files', required=True, type=str,
+    '--framemeta_files', required=False, type=str, default=None,
     help='frame meta info file for samples')
 
 parser.add_argument(

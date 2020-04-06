@@ -13,4 +13,12 @@ python autoCCS.py --config_file ../data/IO-Files_SLIM/autoCCS_config.xml --frame
 
 
 
+<!-- CASP -->
+python autoCCS.py --config_file /Users/leej324/Documents/papers/2020_AutoCCS/data/CASP/autoCCS_config.xml --feature_files "/Users/leej324/Downloads/CASP_2/All_Features_csv/*.csv" --sample_meta /Users/leej324/Documents/papers/2020_AutoCCS/data/CASP/20200313_CASP_Datasets.csv --tunemix_sample_type AgilentTuneMix --colname_for_sample_type Plate --colname_for_filename RawFileNameNew --colname_for_ionization IonPolarity --calibrant_file /Users/leej324/Documents/papers/2020_AutoCCS/data/CASP/TuneMix-CCS.txt --output_dir /Users/leej324/Downloads/CASP_2/Result_wo_meta/ --single_mode batch --mode single
 
+
+python autoCCS.py --config_file /Users/leej324/Documents/papers/2020_AutoCCS/data/CASP/autoCCS_config.xml --feature_files "/Users/leej324/Downloads/CASP_2/All_Features_csv/AgilentTuneMix-POS-*.csv" --sample_meta /Users/leej324/Documents/papers/2020_AutoCCS/data/CASP/20200313_CASP_Datasets.csv --tunemix_sample_type AgilentTuneMix --colname_for_sample_type Plate --colname_for_filename RawFileNameNew --colname_for_ionization IonPolarity --framemeta_files "/Users/leej324/Downloads/CASP_2/All_FrameMetadata/AgilentTuneMix-POS-*.txt"  --calibrant_file /Users/leej324/Documents/papers/2020_AutoCCS/data/CASP/TuneMix-POS-CCS.txt --output_dir /Users/leej324/Downloads/CASP_2/Result_pos_calibration_with_meta/ --single_mode fit --mode single
+
+
+
+python autoCCS.py --config_file /Users/leej324/Documents/papers/2020_AutoCCS/data/CASP/autoCCS_config.xml --feature_files "/Users/leej324/Downloads/CASP_2/All_Features_csv/AgilentTuneMix-POS-*.csv" --sample_meta /Users/leej324/Documents/papers/2020_AutoCCS/data/CASP/20200313_CASP_Datasets.csv --tunemix_sample_type AgilentTuneMix --colname_for_sample_type Plate --colname_for_filename RawFileNameNew --colname_for_ionization IonPolarity --framemeta_files "/Users/leej324/Downloads/CASP_2/All_FrameMetadata/AgilentTuneMix-POS-*.txt"  --calibrant_file /Users/leej324/Documents/papers/2020_AutoCCS/data/CASP/TuneMix-POS-CCS.txt --output_dir /Users/leej324/Downloads/CASP_2/Result_pos_calibration_with_meta/ --single_mode fit --mode single

@@ -63,7 +63,7 @@ parser.add_argument(
     help='meta info file for samples')
 
 parser.add_argument(
-    '--framemeta_files', type=str,
+    '--framemeta_files', type=str, default=None,
     help='frame meta info file for samples')
 
 parser.add_argument(
@@ -397,7 +397,7 @@ def calibrate_ccs_with_framemeta(file, calibrate_fn, frame_info=None, drift_gas_
     # beta = calibrate_fn.beta
     # tfix = calibrate_fn.tfix
 
-    print(frame_info)
+    # print(frame_info)
     if frame_info:
         p_torr, temp = frame_info
         t_k = temp + 273.15
@@ -590,7 +590,7 @@ def curve_fit_with_calibrator(selected, file_list, calibrator,
     # curve fitting for each rep
 
     plt.close('all')
-    fig, axis = plt.subplots(1, sharex=True, sharey=True, figsize=(8, 8))
+    fig, axis = plt.subplots(1, sharex=True, sharey=True, figsize=(10, 8))
     colors = sns.color_palette("Paired")
     num_colors = len(colors)
 
@@ -630,18 +630,21 @@ def curve_fit_with_calibrator(selected, file_list, calibrator,
         # plot points and lines
         pad = 0.1 * (np.max(x) - np.min(x))
         xp = np.linspace(np.min(x) - pad, np.max(x) + pad, 200)
-        axis.scatter(x, y, color=colors[i % num_colors])
-        axis.plot(xp, p(xp), color=colors[i % num_colors], label=fname)
+        axis.scatter(y, x, color=colors[i % num_colors], label=fname)
+        axis.plot(p(xp), xp, lw=0.1, color=colors[i % num_colors])
+        # axis.scatter(y, x, color=colors[i % num_colors])
+        # axis.plot(p(xp), xp, color=colors[i % num_colors], label=fname)
 
-    plt.xlabel('Drift time')
+    plt.ylabel('Arrival time (ms)', fontsize=15)
     if frame_meta:
-        plt.ylabel('Reduced CCS With Pressure and Temperature')
+        plt.xlabel('Reduced CCS With Pressure and Temperature', fontsize=15)
     else:
-        plt.ylabel('Reduced CCS')
-    plt.legend()
+        plt.xlabel('Reduced CCS', fontsize=15)
+    plt.legend(bbox_to_anchor=(1.04,1), loc="upper left", frameon=False)
 
-    if fout: plt.savefig(fout)
-    print(curve_fit_fn)
+    plt.tight_layout()
+    if fout: plt.savefig(fout, dpi=300)
+    # print(curve_fit_fn)
     return curve_fit_fn
 
 
@@ -659,16 +662,27 @@ def fit_calib_curves(FLAGS, config_params):
 
     # select features to compute a calibration curve. TODO: to handle multiple replicates
     tunemix_files = [fname for fname in glob.glob(FLAGS.feature_files) if "/" + prefix_tunemix in fname]
-    tunemix_framemeta_files = [fname for fname in glob.glob(FLAGS.framemeta_files) if "/" + prefix_tunemix in fname]
+
+    assert len(tunemix_files) > 0, \
+        "Feature files for tune-mix samples are not found. Please check your 'prefix_tunemix' in your config file."
+
+    frame_meta = None
+    if FLAGS.framemeta_files is None:
+        tunemix_framemeta_files = []
+    else:
+        tunemix_framemeta_files = [fname for fname in glob.glob(FLAGS.framemeta_files) if "/" + prefix_tunemix in fname]
+
     if len(tunemix_framemeta_files) > 0:
         frame_meta = get_frame_meta(tunemix_framemeta_files,
                                     sep=config_params['suffix_meta'], offset=config_params['frame_offset'])
-        print(frame_meta)
+    if frame_meta is None:
+        print('[INFO] No frame meta data file is given.', frame_meta)
 
     # find the features for calibrants
     selected = find_features_with_calibrator(tunemix_files, calibrator,
                                              sep=sep, ppm=ppm, dformat='mzmine')
-    print(selected)
+    print('[INFO] {} features are selected for determining calibration curves. (m/z tolerance: {}ppm)'.format(
+        selected.shape[0], ppm))
 
     calibrate_functions = curve_fit_with_calibrator(selected, tunemix_files, calibrator,
                                                     frame_meta=frame_meta, sep=sep, drift_gas_mass=drift_gas_mass,
@@ -710,23 +724,28 @@ def perform_CCS_computation(FLAGS, config_params, _calib_curves=None):
         raise Exception
 
     print("#" * 80)
-    print("# Collect calibration curve data from", FLAGS.calibration_curves)
-    print("#" * 80)
     if _calib_curves is None:
+        print("# Collect calibration curve parameters from", FLAGS.calibration_curves)
         from ast import literal_eval
         calibration_curves = pd.read_csv(FLAGS.calibration_curves)
         calibration_curves[['poly']] = calibration_curves[['poly']].applymap(literal_eval)
     else:
+        print("# Collect calibration curve parameters")
         calibration_curves = _calib_curves
-    print(calibration_curves)
+    if calibration_curves.shape[0] > 0:
+        print("\tOK (size: {})".format(calibration_curves.shape))
+    print("#" * 80)
 
     # collect frame meta information (e.g., pressure and temperature)
     print("#" * 80)
     print("# Collect frame meta information from", FLAGS.framemeta_files)
+    if FLAGS.framemeta_files is None:
+        frame_meta = None
+    else:
+        frame_meta = get_frame_meta(glob.glob(FLAGS.framemeta_files), sep=config_params['suffix_meta'],
+                                    offset=config_params['frame_offset'])
+    if frame_meta is None: print('[INFO] No frame meta data file is given.', frame_meta)
     print("#" * 80)
-    frame_meta = get_frame_meta(glob.glob(FLAGS.framemeta_files), sep=config_params['suffix_meta'],
-                                offset=config_params['frame_offset'])
-    print(frame_meta)
 
     print("#" * 80)
     print("# Computing CCS values")
