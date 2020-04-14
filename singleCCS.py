@@ -661,7 +661,7 @@ def fit_calib_curves(FLAGS, config_params):
     # calibrants = get_calibrants(FLAGS.calibrant_file, drift_gas_mass)
 
     # select features to compute a calibration curve. TODO: to handle multiple replicates
-    tunemix_files = [fname for fname in glob.glob(FLAGS.feature_files) if "/" + prefix_tunemix in fname]
+    tunemix_files = [fname for fname in glob.glob(FLAGS.feature_files) if ("/" + prefix_tunemix in fname) | ("\\" + prefix_tunemix in fname)]
 
     assert len(tunemix_files) > 0, \
         "Feature files for tune-mix samples are not found. Please check your 'prefix_tunemix' in your config file."
@@ -670,7 +670,7 @@ def fit_calib_curves(FLAGS, config_params):
     if FLAGS.framemeta_files is None:
         tunemix_framemeta_files = []
     else:
-        tunemix_framemeta_files = [fname for fname in glob.glob(FLAGS.framemeta_files) if "/" + prefix_tunemix in fname]
+        tunemix_framemeta_files = [fname for fname in glob.glob(FLAGS.framemeta_files) if ("/" + prefix_tunemix in fname) | ("\\" + prefix_tunemix in fname)]
 
     if len(tunemix_framemeta_files) > 0:
         frame_meta = get_frame_meta(tunemix_framemeta_files,
