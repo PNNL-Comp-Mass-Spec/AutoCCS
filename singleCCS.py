@@ -661,7 +661,9 @@ def fit_calib_curves(FLAGS, config_params):
     # calibrants = get_calibrants(FLAGS.calibrant_file, drift_gas_mass)
 
     # select features to compute a calibration curve. TODO: to handle multiple replicates
-    tunemix_files = [fname for fname in glob.glob(FLAGS.feature_files) if ("/" + prefix_tunemix in fname) | ("\\" + prefix_tunemix in fname)]
+    # TODO: to avoid the Windows 10 Path issues
+    fixed_paths = [fname.replace("\\", "/") for fname in glob.glob(FLAGS.feature_files)]
+    tunemix_files = [fname for fname in fixed_paths if "/"+prefix_tunemix in fname]
 
     assert len(tunemix_files) > 0, \
         "Feature files for tune-mix samples are not found. Please check your 'prefix_tunemix' in your config file."
@@ -670,7 +672,9 @@ def fit_calib_curves(FLAGS, config_params):
     if FLAGS.framemeta_files is None:
         tunemix_framemeta_files = []
     else:
-        tunemix_framemeta_files = [fname for fname in glob.glob(FLAGS.framemeta_files) if ("/" + prefix_tunemix in fname) | ("\\" + prefix_tunemix in fname)]
+        # TODO: to avoid the Windows 10 Path issues
+        fixed_paths = [fname.replace("\\", "/") for fname in glob.glob(FLAGS.framemeta_files)]
+        tunemix_framemeta_files = [fname for fname in fixed_paths if "/"+prefix_tunemix in fname]
 
     if len(tunemix_framemeta_files) > 0:
         frame_meta = get_frame_meta(tunemix_framemeta_files,
@@ -742,7 +746,9 @@ def perform_CCS_computation(FLAGS, config_params, _calib_curves=None):
     if FLAGS.framemeta_files is None:
         frame_meta = None
     else:
-        frame_meta = get_frame_meta(glob.glob(FLAGS.framemeta_files), sep=config_params['suffix_meta'],
+        # TODO: to avoid the Windows 10 Path issues
+        fixed_paths = [path.replace("\\", "/") for path in glob.glob(FLAGS.framemeta_files)]
+        frame_meta = get_frame_meta(fixed_paths, sep=config_params['suffix_meta'],
                                     offset=config_params['frame_offset'])
     if frame_meta is None: print('[INFO] No frame meta data file is given.', frame_meta)
     print("#" * 80)
@@ -750,10 +756,12 @@ def perform_CCS_computation(FLAGS, config_params, _calib_curves=None):
     print("#" * 80)
     print("# Computing CCS values")
     print("#" * 80)
-    compute_ccs_mzmine(glob.glob(FLAGS.feature_files), sample_meta, calibration_curves, frame_meta,
+    # TODO: to avoid the Windows 10 Path issues
+    fixed_paths = [path.replace("\\", "/") for path in glob.glob(FLAGS.feature_files)]
+    compute_ccs_mzmine(fixed_paths, sample_meta, calibration_curves, frame_meta,
                        out_dir=FLAGS.output_dir,
-                       drift_gas_mass=drift_gas_mass, sep=sep, skip_calibrated_colname=FLAGS.skip_calibrated_colname)
-
+                       drift_gas_mass=drift_gas_mass, sep=sep,
+                       skip_calibrated_colname=FLAGS.skip_calibrated_colname)
 
 def assert_params_enough(FLAGS, config_params):
     '''check if all required parameters are given
