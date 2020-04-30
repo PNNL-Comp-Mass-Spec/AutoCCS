@@ -21,19 +21,40 @@ class CCSCalibrator:
 
         self.calibrants = self.ready()
 
-    def fit(self, x, y, deg=1):
-        """curve fitting to find the calibration function
+    def polyfit(self, x, y, deg=1):
+        """curve fitting by the polynomial function to get the calibration function
         """
         poly = np.poly1d(np.polyfit(x, y, deg))
         self.calibrate_fn = poly
 
+        # r-squared (double-checked with sklearn.metrics.r2_score)
+        # fit values, and mean
+        yhat = poly(x)
+        ybar = np.sum(y) / len(y)
+        ssreg = np.sum((yhat - ybar) ** 2)
+        sstot = np.sum((y - ybar) ** 2)
+        r = ssreg / sstot
+        print("r2: {}".format(r))
+
+        return poly, r
+
+    def powerfit(self, x, y, t0, deg=1):
+        """curve fitting by the linearized power function to get the calibration function
+        """
+        lnx = np.log(x-t0)
+        lny = np.log(y)
+        
+        poly = np.poly1d(np.polyfit(lnx, lny, deg))
+        self.calibrate_fn = poly
+
         # r-squared
         # fit values, and mean
-        yhat = poly(x)  # or [p(z) for z in x]
-        ybar = np.sum(y) / len(y)  # or sum(y)/len(y)
-        ssreg = np.sum((yhat - ybar) ** 2)  # or sum([ (yihat - ybar)**2 for yihat in yhat])
-        sstot = np.sum((y - ybar) ** 2)  # or sum([ (yi - ybar)**2 for yi in y])
+        yhat = poly(lnx)
+        ybar = np.sum(lny) / len(lny)
+        ssreg = np.sum((yhat - ybar) ** 2)
+        sstot = np.sum((lny - ybar) ** 2)
         r = ssreg / sstot
+        print("r2: {}".format(r))
 
         return poly, r
 

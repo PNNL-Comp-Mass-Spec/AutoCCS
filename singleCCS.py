@@ -28,6 +28,10 @@ parser.add_argument(
     '--calibrant_file', type=str,
     help='calibrant file contains the target m/z and CCS')
 
+parser.add_argument(
+    '--calib_method', type=str, choices=['poly','power'], default="poly",
+    help='poly: Polynormial Function, power: Linearized Power Function')
+
 # @deprecated
 parser.add_argument(
     '--tune_mix_regexp', type=str,
@@ -113,22 +117,6 @@ He = 4.002603
 
 ##########################################################################
 
-# def get_calibrants(calibrant_file, drift_gas_mass=28.006148):
-#     '''read calibrants and add reduced mass and ccs values based on the drift gas
-#     '''
-#     calibrants = pd.read_csv(calibrant_file, sep='\t')
-#     # print(calibrants)
-#     calibrants['reduced_mass'] = (calibrants['m/z'] * calibrants.z * drift_gas_mass)/ (drift_gas_mass + calibrants['m/z'] * calibrants.z)
-#     calibrants['reduced_ccs'] = calibrants.CCS / (calibrants.z / (calibrants.reduced_mass**0.5))
-#     return calibrants
-
-# def etree_to_dict(t):
-#     d = {t.tag : map(etree_to_dict, t.iter())}
-#     d.update(('@' + k, v) for k, v in t.attrib.items())
-#     d['text'] = t.text
-#     d['tag'] = t.tag
-#     return d
-
 def get_frame_meta(metafiles, sep="_FrameMetadata", offset=0):
     '''aggregate multiple metadata files and extract the field information for each frame
         if offset<=0: average
@@ -154,67 +142,6 @@ def get_frame_meta(metafiles, sep="_FrameMetadata", offset=0):
     return meta_data
 
 
-# def get_features_from_cef(cef, max_normalize=True):
-#     e = xml.etree.ElementTree.parse(cef).getroot()
-#     json = etree_to_dict(e.findall('CompoundList')[0])
-#     idx = 0
-#     mppid = 0
-#     rst = []
-#     mspeaks = []
-#     in_ms_peaks = False
-#     for j in json['CompoundList']:
-#         if 'Compound' in j:
-#             mppid = j['@mppid']
-
-#         if 'Location' in j:
-#             mz = j['@m']
-#             rt = j['@rt']
-#             intensity = j['@y']
-#             dt = j['@dt']
-#             rst.append({'mppid':mppid, 'mz':float(mz), 'rt':float(rt), 'intensity':float(intensity), 'dt':float(dt)})
-
-#         if 'MSPeaks' in j:
-#             for k in j['MSPeaks']:
-#                 if ('p' in k):
-#                     mspeaks.append({'mppid':mppid, 'mass':float(k['@x']), 'intensity_org':float(k['@y']), 'z':int(k['@z']), 's':k['@s']})
-
-#     df = pd.DataFrame(rst)
-#     mspeaks = pd.DataFrame(mspeaks)
-#     if df.shape[0] > 0:
-#         df['intensity_z'] = (df.intensity - df.intensity.mean())/df.intensity.std()
-#         if max_normalize:
-#             df.intensity /= df.intensity.max()
-#         mspeaks = mspeaks.drop_duplicates(subset='mppid', keep='first')
-#         df = pd.merge(mspeaks, df, left_on="mppid", right_on="mppid", how='inner')
-#     return df, mspeaks
-
-# def get_features_from_mzmine_csv(csv, max_normalize=True):
-#     df = pd.read_csv(csv)
-#     col_id = [c for c in df.columns if c.endswith('row ID')][0]
-#     col_area = [c for c in df.columns if c.endswith('Peak area')][0]
-#     col_height = [c for c in df.columns if c.endswith('Peak height')][0]
-#     col_mz = [c for c in df.columns if c.endswith('Peak m/z')][0]
-#     col_dt = [c for c in df.columns if c.endswith('Peak RT')][0]
-#     if 'calibrated_ccs' in df.columns:
-#         cols = [col_id, col_mz, col_dt, col_area, col_height, 'calibrated_ccs']
-#         colnames = ['mppid', 'mass', 'dt', 'intensity', 'height', 'calibrated_ccs']
-#     else:
-#         cols = [col_id, col_mz, col_dt, col_area, col_height]
-#         colnames = ['mppid', 'mass', 'dt', 'intensity', 'height']
-
-#     df = df[cols].copy()
-#     df.columns = colnames
-#     df['intensity_org'] = df.intensity
-#     if df.shape[0] > 0:
-#         df['intensity_z'] = (df.intensity - df.intensity.mean())/df.intensity.std()
-#         if max_normalize:
-#             df.intensity /= df.intensity.max()
-#     return df, None
-
-# def is_in_tolerance(x, mass, ppm):
-#     delta = mass * ppm * 1.0e-6
-#     return (x >= mass - delta) & (x <= mass + delta)
-
 def datetime(r):
     return pd.to_datetime(r)
 
@@ -230,155 +157,13 @@ def nearest_tunemix(row, **kwargs):
     return temp.loc[minidx].newFile
 
 
-# def plot_features(features, selected, ax, f):
-#     ax.scatter(features.mass, features.intensity_z, s=3)
-#     ax.scatter(selected.mass, selected.intensity_z, s=2, c='red')
-#     ax.set_title(f)
-#     ax.set_ylabel('intensity(z-score)')
-
-# def plot_multi_features(file_list, calibrants, ppm=20, dformat='cef'):
-#     plt.close('all')
-#     fig, axis = plt.subplots(len(file_list), sharex=True, sharey=True, figsize=(8,8))
-
-#     if dformat=='cef':
-#         get_features = get_features_from_cef
-#     elif dformat=='mzmine':
-#         get_features = get_features_from_mzmine_csv
-
-#     for i, f in enumerate(file_list):
-#         ax = axis[i]
-#         features, peaks = get_features(f)
-#         selected = select_features(features, calibrants, f, ppm=ppm)
-#         plot_features(features, selected, ax, f)
-#     plt.xlabel('m/z')
-#     plt.show()
-#     return selected
-
-# def select_features(features, calibrants, file, ppm=20):
-#     selected = pd.DataFrame()
-#     for row in calibrants.iterrows():
-#         mz = row[1]['m/z']
-#         reduced_ccs = row[1]['reduced_ccs']
-#         ccs = row[1]['CCS']
-#         _ff = features[is_in_tolerance(features.mass, mz, ppm)]
-#         _ff = _ff.assign(calibrants_mz=mz, ccs=ccs, reduced_ccs=reduced_ccs, replicate=file)
-#         if selected.shape[0] == 0:
-#             selected = _ff
-#         else:
-#             selected = selected.append(_ff)
-#     return selected
-
-# def plot_ccs_dt(selected, calibrants, ax, file, color):
-#     features = selected.sort_values(by='intensity').drop_duplicates(subset=['calibrants_mz'], keep='last')
-#     features = features.sort_values(by='dt')
-#     ax.plot(features.dt, features.reduced_ccs, color=color, label="")
-#     ax.scatter(features.dt, features.reduced_ccs, color=color, label=os.path.basename(file))
-#     ax.set_ylabel('Reduced CCS')
-
-#     # ax.set_title(cef)
-#     return features
-
-# def plot_calibrate_ccs(file_list, calibrants, ppm=20, dformat='cef'):
-#     '''
-#         dformat: file format. cef - Agilent MassProfiler, mzmine - MZmine CSV
-#     '''
-#     plt.close('all')
-#     fig, axis = plt.subplots(len(file_list), sharex=True, sharey=True, figsize=(8,8))
-#     colors=sns.color_palette("Paired")
-#     num_colors = len(colors)
-#     if dformat=='cef':
-#         get_features = get_features_from_cef
-#     elif dformat=='mzmine':
-#         get_features = get_features_from_mzmine_csv
-#     for i, f in enumerate(file_list):
-#         ax = axis[i]
-#         features, _ = get_features(f)
-#         _selected = select_features(features, calibrants, f, ppm=ppm)
-#         _selected = plot_ccs_dt(_selected, calibrants, ax, f, colors[i%num_colors])
-#         if i == 0: selected = _selected
-#         else: selected = selected.append(_selected)
-#     plt.xlabel('Drift time')
-
-#     plt.show()
-#     return selected
-
-# def plot_calibrate_ccs_in_one(file_list, calibrants, ppm=20, dformat='cef', ofile=None):
-#     '''
-#         dformat: file format. cef - Agilent MassProfiler, mzmine - MZmine CSV
-#     '''
-#     plt.close('all')
-#     fig, ax = plt.subplots(1, sharex=True, sharey=True, figsize=(8,8))
-#     colors=sns.color_palette("tab20c")
-#     num_colors = len(colors)
-
-#     if dformat=='cef':
-#         get_features = get_features_from_cef
-#     elif dformat=='mzmine':
-#         get_features = get_features_from_mzmine_csv
-
-#     for i, f in enumerate(file_list):
-#         features, _ = get_features(f)
-#         _selected = select_features(features, calibrants, f, ppm=ppm)
-#         _selected = plot_ccs_dt(_selected, calibrants, ax, f, colors[i%num_colors])
-#         if i == 0: selected = _selected
-#         else: selected = selected.append(_selected)
-#     plt.xlabel('Drift time')
-#     ax.legend()
-#     # ax.legend([os.path.basename(f) for f in file_list])
-#     if ofile == None:
-#         plt.show();
-#     else:
-#         plt.tight_layout()
-#         plt.savefig(ofile, dpi=600)
-#     return selected
-
-# def calibrate_ccs(file, calibrate_function, drift_gas_mass=28.006148, dformat='cef', z=1):
-#     if dformat=='cef':
-#         get_features = get_features_from_cef
-#     elif dformat=='mzmine':
-#         get_features = get_features_from_mzmine_csv
-#     features, _ = get_features(file)
-#     gamma = np.sqrt(features.mass/(features.mass + drift_gas_mass))/z
-#     beta = calibrate_functions[1]
-#     tfix = calibrate_functions[0]
-#     features['calibrated_ccs'] = (features.dt - tfix)/(beta*gamma)
-#     return features
-
-# def curve_fit(selected, file_list, drift_gas_mass=28.006148, deg=1, z=1):
-#     # curve fitting for each rep
-#     curve_fit_fn = []
-#     for i, f in enumerate(file_list):
-#         data = selected[selected.replicate==f]
-#         print(i, f, data.shape)
-#         if data.shape[0] == 0: continue;
-
-#         gamma = np.sqrt(data.mass/(data.mass + drift_gas_mass))/z
-
-#         x = gamma*data.ccs
-#         y = data.dt
-
-#         p = np.poly1d(np.polyfit(x, y, deg))
-
-#         # r-squared
-#         # fit values, and mean
-#         yhat = p(x)                      # or [p(z) for z in x]
-#         ybar = np.sum(y)/len(y)          # or sum(y)/len(y)
-#         ssreg = np.sum((yhat-ybar)**2)   # or sum([ (yihat - ybar)**2 for yihat in yhat])
-#         sstot = np.sum((y - ybar)**2)    # or sum([ (yi - ybar)**2 for yi in y])
-#         r = ssreg / sstot
-
-#         print(p, r)
-#         curve_fit_fn.append({"file":f, "tunemix":f.split('.mzML')[0].split('/')[-1], "tfix":p[0], "beta":p[1]})
-#     return curve_fit_fn
-
-
 def calibrate_ccs(file, calibrate_fn, drift_gas_mass=28.006148, dformat='cef', z=1):
     if dformat == 'cef':
         get_features = get_features_from_cef
     elif dformat == 'mzmine':
         get_features = get_features_from_mzmine_csv
     features, _ = get_features(file)
-    gamma = np.sqrt(features.mass / (features.mass + drift_gas_mass)) / z
+    gamma = np.sqrt(features.mass*drift_gas_mass / (features.mass + drift_gas_mass)) / z
     beta = calibrate_fn.beta
     tfix = calibrate_fn.tfix
     features['calibrated_ccs'] = (features.dt - tfix) / (beta * gamma)
@@ -392,19 +177,30 @@ def calibrate_ccs_with_framemeta(file, calibrate_fn, frame_info=None, drift_gas_
         get_features = get_features_from_mzmine_csv
     features, _ = get_features(file)
 
-    gamma = np.sqrt(features.mass / (features.mass + drift_gas_mass)) / z
-    poly_fn = np.poly1d(calibrate_fn.poly)
-    # beta = calibrate_fn.beta
-    # tfix = calibrate_fn.tfix
+    gamma = np.sqrt(features.mass*drift_gas_mass / (features.mass + drift_gas_mass)) / z
 
-    # print(frame_info)
-    if frame_info:
-        p_torr, temp = frame_info
-        t_k = temp + 273.15
-        gamma = gamma * p_torr / np.sqrt(t_k)
+    if calibrate_fn.calib_method=="poly":
+        poly_fn = np.poly1d(calibrate_fn.poly)
+    
+        if frame_info:
+            p_torr, temp = frame_info
+            t_k = temp + 273.15
+            gamma = gamma * p_torr / np.sqrt(t_k)
+        # TODO t0
+        features['calibrated_ccs'] = poly_fn(features.dt - calibrate_fn.t0) / gamma
+    elif calibrate_fn.calib_method=="power":
+        corrected_dt = calibrate_fn.C * np.sqrt(features.mass/z) / 1000
+        x = features.dt - corrected_dt - calibrate_fn.t0
+        
+        # linear regression of td' and reduced CCS
+        poly_td = np.poly1d(calibrate_fn.poly_td)
 
-    features['calibrated_ccs'] = poly_fn(features.dt) / gamma
-    # features['calibrated_ccs'] = (features.dt - tfix)/(beta*gamma)
+        # linear regression of td'' and known CCS
+        x2 = x**poly_td.c[0] / gamma
+        poly_ccs = np.poly1d(calibrate_fn.poly_ccs)
+        features['calibrated_ccs'] = poly_ccs(x2)
+    else:
+        print("[ERROR] --calib_method should be 'poly' or 'power'.")
 
     return features
 
@@ -586,18 +382,26 @@ def find_features_with_calibrator(file_list, calibrator, sep="", ppm=20, dformat
 
 
 def curve_fit_with_calibrator(selected, file_list, calibrator,
-                              frame_meta=None, sep="", drift_gas_mass=28.006148, deg=1, z=1, fout=None):
+                              frame_meta=None, sep="",
+                              drift_gas_mass=28.006148,
+                              calib_method="poly",
+                              deg=1, z=1,
+                              C=0, t0=0,
+                              fout=None):
     # curve fitting for each rep
-
     plt.close('all')
-    fig, axis = plt.subplots(1, sharex=True, sharey=True, figsize=(10, 8))
+    if calib_method == "poly":
+        fig, axis = plt.subplots(1, sharex=True, sharey=True, figsize=(10, 8))
+    elif calib_method == "power":
+        fig, axis = plt.subplots(2, sharex=False, sharey=False, figsize=(10, 8))
+    
     colors = sns.color_palette("Paired")
     num_colors = len(colors)
 
     curve_fit_fn = []
     file_list.sort()
 
-    print('sep', sep)
+    # print('sep', sep)
 
     for i, f in enumerate(file_list):
         print("#" * 100)
@@ -608,7 +412,7 @@ def curve_fit_with_calibrator(selected, file_list, calibrator,
             continue
         print(i, f, data.shape)
 
-        gamma = np.sqrt(data.mass / (data.mass + drift_gas_mass)) / z
+        gamma = np.sqrt(data.mass * drift_gas_mass / (data.mass + drift_gas_mass)) / z
 
         if frame_meta:
             print('frame_meta', frame_meta)
@@ -619,42 +423,127 @@ def curve_fit_with_calibrator(selected, file_list, calibrator,
         else:
             y = gamma * data.ccs
 
-        x = data.dt
-        p, r = calibrator.fit(x, y, deg=deg)
+        if calib_method=="poly":
+            # TODO t0
+            x = data.dt - t0
+            pad = 0.1 * (np.max(x) - np.min(x))
+            xp = np.linspace(np.min(x) - pad, np.max(x) + pad, 100)
 
-        print(p, ", r=", r)
+            p, r = calibrator.polyfit(x, y, deg=deg)
+            print("Polynormial Function:")
+            print(p, ", r2=", r)
+            # plot points and lines
+            axis.scatter(x, y, color=colors[i % num_colors], label=fname)
+            axis.plot(xp, p(xp), lw=0.1, color=colors[i % num_colors])
+            curve_dict = {"file": f, "tunemix": fname, "poly": list(p),
+                "r2": r, "t0": t0,
+                "calib_method": calib_method}
 
-        curve_dict = {"file": f, "tunemix": fname, "poly": list(p)}
+            plt.xlabel('Arrival time (ms)', fontsize=15)
+            if frame_meta:
+                plt.ylabel('Reduced CCS ($\Omega\'$) With Pressure and Temperature', fontsize=15)
+            else:
+                plt.ylabel('Reduced CCS ($\Omega\'$)', fontsize=15)
+            plt.legend(bbox_to_anchor=(1.04,1), loc="upper left", frameon=False)
+        elif calib_method=="power":
+            corrected_dt = C * np.sqrt(data.mass/z) / 1000
+            x = data.dt - corrected_dt - t0
+            pad = 0.1 * (np.max(x) - np.min(x))
+            xp = np.linspace(np.min(x) - pad, np.max(x) + pad, 100)
+
+            lnx = np.log(x)
+            lny = np.log(y)
+            
+            # linear regression of td' and reduced CCS
+            poly_td = np.poly1d(np.polyfit(lnx, lny, 1))
+            # self.calibrate_fn = poly
+
+            # r-squared
+            yhat = poly_td(lnx)
+            ybar = np.sum(lny) / len(lny)
+            ssreg = np.sum((yhat - ybar) ** 2)
+            sstot = np.sum((lny - ybar) ** 2)
+            r2_td = ssreg / sstot
+            print("Td\' vs CCS\' R2: {}".format(r2_td))
+            print("Coefficients:", poly_td.c)
+
+            # plot points and lines
+            axis[0].scatter(np.log(x), np.log(y), color=colors[i % num_colors], label=fname)
+            axis[0].plot(np.log(xp), poly_td(np.log(xp)), color=colors[i % num_colors])
+            axis[0].set_xlabel('$ln(t_A\')$', fontsize=15)
+            if frame_meta:
+                axis[0].set_ylabel('$ln(\Omega\')$ With Pressure and Temperature', fontsize=15)
+            else:
+                axis[0].set_ylabel('$ln(\Omega\')$', fontsize=15)
+
+            axis[0].legend(bbox_to_anchor=(1.04,1), loc="upper left", frameon=False)
+
+            # linear regression of td'' and known CCS
+            x2 = x**poly_td.c[0] / gamma
+            y2 = data.ccs
+
+            poly_td2 = np.poly1d(np.polyfit(x2, y2, 1))
+
+            # r-squared
+            yhat = poly_td2(x2)
+            ybar = np.sum(y2) / len(y2)
+            ssreg = np.sum((yhat - ybar) ** 2)
+            sstot = np.sum((y2 - ybar) ** 2)
+            r2_ccs = ssreg / sstot
+            print("Td\'\' vs CCS R2: {}".format(r2_ccs))
+            print("Coefficients:", poly_td2.c)
+
+            # plot points and lines
+            pad = 0.1 * (np.max(x2) - np.min(x2))
+            xp2 = np.linspace(np.min(x2) - pad, np.max(x2) + pad, 100)
+            axis[1].scatter(x2, y2, color=colors[i % num_colors], label=fname)
+            axis[1].plot(xp2, poly_td2(xp2), color=colors[i % num_colors])
+            axis[1].set_xlabel('$t_A\'\'$', fontsize=15)
+            if frame_meta:
+                axis[1].set_ylabel('$\Omega$ With Pressure and Temperature', fontsize=15)
+            else:
+                axis[1].set_ylabel('$\Omega$', fontsize=15)
+
+            curve_dict = {
+                "file": f, "tunemix": fname, "C":C, "t0":t0,
+                "poly_td": list(poly_td), "poly_ccs": list(poly_td2),
+                "r2_td": r2_td, "r2_ccs": r2_ccs,
+                "calib_method": calib_method
+            }
+        else:
+            print("[ERROR] --calib_method should be 'poly' or 'power'.")
+        
         curve_fit_fn.append(curve_dict)
 
-        # plot points and lines
-        pad = 0.1 * (np.max(x) - np.min(x))
-        xp = np.linspace(np.min(x) - pad, np.max(x) + pad, 200)
-        axis.scatter(y, x, color=colors[i % num_colors], label=fname)
-        axis.plot(p(xp), xp, lw=0.1, color=colors[i % num_colors])
-        # axis.scatter(y, x, color=colors[i % num_colors])
-        # axis.plot(p(xp), xp, color=colors[i % num_colors], label=fname)
-
-    plt.ylabel('Arrival time (ms)', fontsize=15)
-    if frame_meta:
-        plt.xlabel('Reduced CCS With Pressure and Temperature', fontsize=15)
-    else:
-        plt.xlabel('Reduced CCS', fontsize=15)
-    plt.legend(bbox_to_anchor=(1.04,1), loc="upper left", frameon=False)
-
+    # if calib_method=="poly":
+    #     plt.xlabel('Arrival time (ms)', fontsize=15)
+    #     if frame_meta:
+    #         plt.ylabel('Reduced CCS ($\Omega\'$) With Pressure and Temperature', fontsize=15)
+    #     else:
+    #         plt.ylabel('Reduced CCS ($\Omega\'$)', fontsize=15)
+    # elif calib_method=="power":
+    #     plt.xlabel('$ln(t_A)$', fontsize=15)
+    #     if frame_meta:
+    #         plt.ylabel('$ln(\Omega\')$ With Pressure and Temperature', fontsize=15)
+    #     else:
+    #         plt.ylabel('$ln(\Omega\')$', fontsize=15)
+    
     plt.tight_layout()
     if fout: plt.savefig(fout, dpi=300)
-    # print(curve_fit_fn)
     return curve_fit_fn
 
 
 def fit_calib_curves(FLAGS, config_params):
+    C, t0 = 0, 0
+    if "C" in config_params: C = config_params['C']
+    if "accumulation_time" in config_params: t0 = config_params['accumulation_time']
+
     drift_gas_mass = config_params['neutral_mass']
     ppm = config_params['mz_tolerance']
     if FLAGS.ppm: ppm = FLAGS.ppm
 
     sep = config_params['suffix_raw'].split("{")[0]
-    prefix_tunemix = config_params['prefix_tunemix']
+    substring_tunemix = config_params['substring_tunemix']
 
     # target calibrants to get a calibration curve
     calibrator = CCSCalibrator(FLAGS.calibrant_file, drift_gas_mass)
@@ -663,10 +552,10 @@ def fit_calib_curves(FLAGS, config_params):
     # select features to compute a calibration curve. TODO: to handle multiple replicates
     # TODO: to avoid the Windows 10 Path issues
     fixed_paths = [fname.replace("\\", "/") for fname in glob.glob(FLAGS.feature_files)]
-    tunemix_files = [fname for fname in fixed_paths if "/"+prefix_tunemix in fname]
+    tunemix_files = [fname for fname in fixed_paths if substring_tunemix in fname.split("/")[-1]]
 
     assert len(tunemix_files) > 0, \
-        "Feature files for tune-mix samples are not found. Please check your 'prefix_tunemix' in your config file."
+        "Feature files for tune-mix samples are not found. Please check your 'substring_tunemix' in your config file."
 
     frame_meta = None
     if FLAGS.framemeta_files is None:
@@ -674,11 +563,12 @@ def fit_calib_curves(FLAGS, config_params):
     else:
         # TODO: to avoid the Windows 10 Path issues
         fixed_paths = [fname.replace("\\", "/") for fname in glob.glob(FLAGS.framemeta_files)]
-        tunemix_framemeta_files = [fname for fname in fixed_paths if "/"+prefix_tunemix in fname]
+        tunemix_framemeta_files = [fname for fname in fixed_paths if substring_tunemix in fname.split("/")[-1]]
 
     if len(tunemix_framemeta_files) > 0:
         frame_meta = get_frame_meta(tunemix_framemeta_files,
-                                    sep=config_params['suffix_meta'], offset=config_params['frame_offset'])
+                                    sep=config_params['suffix_meta'],
+                                    offset=config_params['frame_offset'])
     if frame_meta is None:
         print('[INFO] No frame meta data file is given.', frame_meta)
 
@@ -689,13 +579,19 @@ def fit_calib_curves(FLAGS, config_params):
         selected.shape[0], ppm))
 
     calibrate_functions = curve_fit_with_calibrator(selected, tunemix_files, calibrator,
-                                                    frame_meta=frame_meta, sep=sep, drift_gas_mass=drift_gas_mass,
+                                                    frame_meta=frame_meta,
+                                                    sep=sep, drift_gas_mass=drift_gas_mass,
+                                                    calib_method=FLAGS.calib_method,
                                                     deg=FLAGS.degree, z=1,
-                                                    fout=FLAGS.output_dir + "/calibration_output.pdf")
+                                                    C=C, t0=t0,
+                                                    fout=FLAGS.output_dir + "/calibration_output.{}.pdf".format(FLAGS.calib_method))
 
     if len(calibrate_functions) > 0:
-        rst_df = pd.DataFrame(calibrate_functions)[['file', 'tunemix', 'poly']]
-        rst_df.to_csv(FLAGS.output_dir + "/calibrate_functions.csv")
+        rst_df = pd.DataFrame(calibrate_functions)
+        poly_cols = [col for col in rst_df.columns if "poly" in col]
+        other_cols = [col for col in rst_df.columns if col not in (['file', 'tunemix'] + poly_cols)]
+        rst_df = rst_df[['file', 'tunemix'] + poly_cols + other_cols]
+        rst_df.to_csv(FLAGS.output_dir + "/calibrate_functions.{}.csv".format(FLAGS.calib_method))
         return rst_df
     else:
         print("[ERROR] cannot find any good calibration curves")
@@ -732,7 +628,9 @@ def perform_CCS_computation(FLAGS, config_params, _calib_curves=None):
         print("# Collect calibration curve parameters from", FLAGS.calibration_curves)
         from ast import literal_eval
         calibration_curves = pd.read_csv(FLAGS.calibration_curves)
-        calibration_curves[['poly']] = calibration_curves[['poly']].applymap(literal_eval)
+        poly_cols = [col for col in calibration_curves if "poly" in col]
+        for col in poly_cols:
+            calibration_curves[[col]] = calibration_curves[[col]].applymap(literal_eval)
     else:
         print("# Collect calibration curve parameters")
         calibration_curves = _calib_curves
@@ -758,7 +656,8 @@ def perform_CCS_computation(FLAGS, config_params, _calib_curves=None):
     print("#" * 80)
     # TODO: to avoid the Windows 10 Path issues
     fixed_paths = [path.replace("\\", "/") for path in glob.glob(FLAGS.feature_files)]
-    compute_ccs_mzmine(fixed_paths, sample_meta, calibration_curves, frame_meta,
+    feature_files = [fname for fname in fixed_paths if fname.split("/")[-1].split(sep)[0] in sample_meta.newFile.tolist()]
+    compute_ccs_mzmine(feature_files, sample_meta, calibration_curves, frame_meta,
                        out_dir=FLAGS.output_dir,
                        drift_gas_mass=drift_gas_mass, sep=sep,
                        skip_calibrated_colname=FLAGS.skip_calibrated_colname)

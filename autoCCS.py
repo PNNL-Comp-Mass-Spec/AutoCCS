@@ -1,7 +1,7 @@
 import argparse
 from multiCCS import multi
 from singleCCS import single
-from utils import get_config
+from utils import get_config, is_valid
 
 ##########################################################################
 # ArgumentParser
@@ -88,6 +88,10 @@ parser.add_argument(
     '--degree', type=int, default=1,
     help='Degree of the fitting polynomial for CCS calibration curves')
 
+parser.add_argument(
+    '--calib_method', type=str, choices=['poly','power'], default="poly",
+    help='poly: Polynormial Function, power: Linearized Power Function')
+
 ################################################
 # args for multi-field
 ################################################
@@ -136,7 +140,9 @@ def main(FLAGS):
     # read a set of configuration parameters
     config_params = get_config(FLAGS.config_file)
     print(config_params)
-
+    assert is_valid(FLAGS, config_params), \
+            "Please check out parameters again."
+        
     if FLAGS.mode=="single":
         print("Single-Field Mode")
         single(FLAGS, config_params)

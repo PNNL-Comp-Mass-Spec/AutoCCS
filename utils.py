@@ -29,7 +29,9 @@ def get_config(config_file):
     try:
         for j in json['configuration']:
             if 'parameter' in j:
-                if j['@name'] in ['mz_tolerance', 'drift_tube_length', 'old_drift_tube_length', 'neutral_mass']:
+                if j['@name'] in ['mz_tolerance', 'drift_tube_length', \
+                    'old_drift_tube_length', 'neutral_mass', \
+                    "C", "accumulation_time"]:
                     val = float(j['text'])
                 elif j['@name'] in ['frame_offset', 'num_fields']:
                     val = int(j['text'])
@@ -48,6 +50,26 @@ def get_config(config_file):
 
     return config_params
 
+def is_valid(params, config_params):
+    """TODO
+    validate config parameters
+    """
+
+    # validate the mode-specific parameters
+    if params.mode=="single":
+        required_params = ['substring_tunemix']
+        for req in required_params:
+            if req not in config_params:
+                print("`{}` is required in the your config.xml".format(req))
+                return False
+
+    elif params.mode=="multi":
+        config_params['substring_tunemix']
+    else:
+        print("[ERR] --mode= `single` or `multi`")
+        return False
+
+    return True
 
 def get_features_from_cef(cef, max_normalize=True):
     '''get features by reading a cef file
