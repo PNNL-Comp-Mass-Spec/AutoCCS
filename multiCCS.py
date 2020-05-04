@@ -63,6 +63,10 @@ parser.add_argument(
     help='threshold value for peak intensity rank in m/z window')
 
 parser.add_argument(
+    '--threshold_n_fields', type=int, default=3,
+    help='threshold value for the minimum number of fields for linear regression')
+
+parser.add_argument(
     '--maxint', action='store_true',
     help='select max intensive peaks for ccs computation')
 
@@ -393,7 +397,7 @@ def get_ccs(FLAGS, comp_id, target_list, config_params):
                                                        old_drift_tube_length=config_params['old_drift_tube_length'],
                                                        drift_tube_length=config_params['drift_tube_length'],
                                                        neutral_mass=config_params['neutral_mass'],
-                                                       threshold_n_fields=3,
+                                                       threshold_n_fields=FLAGS.threshold_n_fields,
                                                        threshold_r2=FLAGS.r2_threshold)
                     # filtering should be done based on ccs values of across all 3 replicates
                     # Note: i am not sure if r2 is a good metric to do this.

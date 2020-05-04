@@ -29,7 +29,7 @@ parser.add_argument(
     help='Configuration file')
 
 ################################################
-# args for sigle-field
+# args for single-field
 ################################################
 parser.add_argument(
     '--calibrant_file', type=str,
@@ -118,6 +118,10 @@ parser.add_argument(
 parser.add_argument(
     '--intensity_rank_threshold', type=int, default=3,
     help='threshold value for peak intensity rank in m/z window')
+
+parser.add_argument(
+    '--threshold_n_fields', type=int, default=3,
+    help='threshold value for the minimum number of fields for linear regression')
 
 parser.add_argument(
     '--maxint', action='store_true',
