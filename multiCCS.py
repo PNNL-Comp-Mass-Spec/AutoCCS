@@ -650,7 +650,7 @@ def multi(FLAGS, config_params):
                             framemeta_name = framemeta
                     prefix = _f.split(suffix_header)[0]
                     uniqueIDs_list.append({'RawFileName':prefix, 'FrameMetaName':framemeta_name, 'uid':uid, 'ionizations':_ion})
-                    break
+                    # break
         print(uniqueIDs_list)
         tdf = pd.DataFrame(uniqueIDs_list).drop_duplicates()
         target_list = target_list.merge(tdf, left_on=['Ionization','UniqueID4DfileNames'], right_on=['ionizations','uid'])
