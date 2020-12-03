@@ -284,6 +284,7 @@ class Graph:
 
 def get_possible_ccs_values(ccs_df,
                             adduct_mass,
+                            charge_state=1,
                             old_drift_tube_length=90.33,
                             drift_tube_length=90.33,
                             neutral_mass=28.013,
@@ -418,7 +419,7 @@ def get_possible_ccs_values(ccs_df,
             else:
                 feature_info = ccs_df.loc[df_node_idx[path]][['intensity_org','mass','dt','mppid','intensity_z','intensity','ImsPressure','ImsTemperature','ImsField','frame']]
             # print(feature_info)
-            ccs = SteppedFieldCCS(feature_info, adduct_mass, old_drift_tube_length)
+            ccs = SteppedFieldCCS(feature_info, adduct_mass, old_drift_tube_length, charge_state=charge_state)
             ccs.compute(drift_tube_length=drift_tube_length, neutral_mass=neutral_mass)
             # print(ccs.to_dict())
             # remove the redundant regression lines which share the same start nodes(features)

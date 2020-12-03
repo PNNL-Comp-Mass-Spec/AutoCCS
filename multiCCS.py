@@ -133,9 +133,9 @@ def get_adducts(exact_mass, adducts):
             name = '[M'+c+adduct['name']+']' if abs(charge)>1 else '[M'+c[0]+adduct['name']+']'
             mass = (exact_mass + charge * adduct['mass'])/abs(charge)
             if charge > 0:
-                adducts2mass['pos'][name] = mass
+                adducts2mass['pos'][name] = (mass, charge)
             elif charge < 0:
-                adducts2mass['neg'][name] = mass
+                adducts2mass['neg'][name] = (mass, charge)
     return adducts2mass
 
 
@@ -145,14 +145,18 @@ def get_features(file, max_normalize=True, fformat='cef'):
     else: print('File format: {0}. This tool doesn\'t support this file format.'.format(fformat))
     return None, None
 
-def get_adducts_colors():
-    return {'[M+.]':'m',
-            '[M+H]':'b',
-            '[M+2H]':'c',
-            '[M+Na]':'r',
-            '[M+K]':'g',
-            '[M-H]':'y'}
-        
+def get_adducts_colors(adduct):
+    colors = {'[M+.]':'m',
+        '[M+H]':'b',
+        '[M+2H]':'c',
+        '[M+Na]':'r',
+        '[M+K]':'g',
+        '[M-H]':'y'}
+    if adduct in colors:
+        return colors[adduct]
+    else:
+        return 'k'
+
 def is_in_tolerance(x, mass, ppm):
     delta = mass * ppm * 1.0e-6
     #print(mass, delta, mass-delta, mass+delta)
@@ -374,7 +378,7 @@ def get_ccs(FLAGS, comp_id, target_list, config_params):
             print("features size:", features.shape)
 
             for adduct in adducts:
-                adduct_mass = adducts[adduct]
+                adduct_mass, charge_state = adducts[adduct]
                 start_time = time.time()
                 
                 if (FLAGS.maxint):
@@ -393,6 +397,7 @@ def get_ccs(FLAGS, comp_id, target_list, config_params):
 
                     ccs_list = get_possible_ccs_values(ccs_features_within_mz,
                                                        adduct_mass,
+                                                       abs(charge_state),
                                                        old_drift_tube_length=config_params['old_drift_tube_length'],
                                                        drift_tube_length=config_params['drift_tube_length'],
                                                        neutral_mass=config_params['neutral_mass'],
@@ -472,7 +477,7 @@ def compute(df, ion_mz, config_params):
 def plot_ccs_regression_lines(axis, adduct, adduct_mass, df, prop, title, drift_tube_length=78.236):
     
     addmass = adduct_mass
-    color = get_adducts_colors()[adduct]
+    color = get_adducts_colors(adduct)
 
     p_v = df.ImsPressure / (df.ImsField * drift_tube_length)
     
@@ -512,7 +517,7 @@ def plot_ccs_regression_lines2(
                     title,
                     drift_tube_length):
     addmass = adduct_mass
-    color = get_adducts_colors()[adduct]
+    color = get_adducts_colors(adduct)
 
     p_v = df.ImsPressure / (df.ImsField * drift_tube_length)
     
@@ -553,16 +558,15 @@ def plot_ccs_regression_lines2(
 
 def plot_intensity_distribution(features, adducts_mass, ax, ppm=50):
     if features.shape[0] > 0:
-        colors = get_adducts_colors()
         ddata = np.log(features.intensity_org)
         g = sns.kdeplot(ddata, shade=True, color="b", ax=ax)
         ax.axvline(np.log(np.median(features.intensity_org)), linestyle=':')
         ax.axvline(np.log(10*np.median(features.intensity_org)), linestyle=':')
         ax.axvline(np.log(np.mean(features.intensity_org)+2*np.std(features.intensity_org)), linestyle='-.')
         for adduct in adducts_mass:
-            sel = features[is_in_tolerance(features.mass, adducts_mass[adduct], ppm)]
+            sel = features[is_in_tolerance(features.mass, adducts_mass[adduct][0], ppm)]
             if sel.shape[0] > 0:
-                ax.scatter(np.log(sel['intensity_org']), np.zeros(sel.shape[0]), c=colors[adduct])
+                ax.scatter(np.log(sel['intensity_org']), np.zeros(sel.shape[0]), c=get_adducts_colors(adduct))
         ax.set_xlabel('log(Intensity)')
         ax.set_ylabel('Density')
         ax.set_xlim([np.min(ddata), np.max(ddata)])
