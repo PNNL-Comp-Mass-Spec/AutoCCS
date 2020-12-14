@@ -110,7 +110,8 @@ def get_features_from_cef(cef, max_normalize=True):
     return df, mspeaks#, num_isotopes
 
 
-def get_features_from_mzmine_csv(csv, max_normalize=True):
+def get_features_from_mzmine_csv\
+                (csv, max_normalize=True):
     df = pd.read_csv(csv)
     if df.shape[0] == 0: return df, None
     col_id = [c for c in df.columns if c.endswith('row ID')][0]

@@ -61,7 +61,7 @@ python -u autoCCS.py
 #### Single-Field RapidFire-DTIMS-MS ####
 <!--
 ```bash
-python autoCCS.py --config_file data/SingleField-RapidFire-DTIMS/autoCCS_config.xml --framemeta_files "data/SingleField-RapidFire-DTIMS/ImsMetadata/*.txt" --feature_files "data/SingleField-RapidFire-DTIMS/Features_csv/*.csv" --calibrant_file data/SingleField-RapidFire-DTIMS/TuneMix-CCS.txt --output_dir data/SingleField-RapidFire-DTIMS/Results/ --tunemix_sample_type AgilentTuneMix --sample_meta data/SingleField-RapidFire-DTIMS/Datasets.csv --colname_for_sample_type SampleType --colname_for_filename RawFileName --colname_for_ionization IonPolarity --degree 1 --single_mode batch --mode single &> data/SingleField-RapidFire-DTIMS/LogFiles/multi.log
+python autoCCS.py --config_file data/SingleField-RapidFire-DTIMS/autoCCS_config.xml --framemeta_files "data/SingleField-RapidFire-DTIMS/ImsMetadata/*.txt" --feature_files "data/SingleField-RapidFire-DTIMS/Features_csv/*.csv" --calibrant_file data/SingleField-RapidFire-DTIMS/TuneMix-CCS.txt --output_dir data/SingleField-RapidFire-DTIMS/Results/ --tunemix_sample_type AgilentTuneMix --sample_meta data/SingleField-RapidFire-DTIMS/Datasets.csv --colname_for_sample_type SampleType --colname_for_filename RawFileName --colname_for_ionization IonPolarity --degree 1 --single_mode batch --mode single &> data/SingleField-RapidFire-DTIMS/LogFiles/single.log
 ```
 -->
 
@@ -80,7 +80,7 @@ python autoCCS.py
   --colname_for_ionization IonPolarity
   --degree 1
   --single_mode batch
-  --mode single &> data/SingleField-RapidFire-DTIMS/LogFiles/multi.log
+  --mode single &> data/SingleField-RapidFire-DTIMS/LogFiles/single.log
 ```
 
 #### SLIM-based IMS-MS ####

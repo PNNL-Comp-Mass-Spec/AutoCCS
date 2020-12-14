@@ -205,8 +205,9 @@ def calibrate_ccs_with_framemeta(file, calibrate_fn, frame_info=None, drift_gas_
     return features
 
 
-def compute_ccs_mzmine(files, meta_info, calibration_curves, frame_meta=None, out_dir="./",
-                       drift_gas_mass=28.006148, sep=".mzML", skip_calibrated_colname=None):
+def compute_ccs(files, meta_info, calibration_curves, frame_meta=None, out_dir="./",
+                drift_gas_mass=28.006148, sep=".mzML", skip_calibrated_colname=None,
+                dformat="mzmine"):
     '''
         files: mzmine output csv files
         meta_info: it has acquired time, csv file name, the nearest tunemix
@@ -244,12 +245,15 @@ def compute_ccs_mzmine(files, meta_info, calibration_curves, frame_meta=None, ou
             # print(filename, tunemix, calibration_curves[calibration_curves.tunemix==tunemix])
             calibration_function = calibration_curves[calibration_curves.tunemix == tunemix].iloc[0]
             features = calibrate_ccs_with_framemeta(f, calibration_function, frame_info,
-                                                    drift_gas_mass=drift_gas_mass, dformat='mzmine')
+                                                    drift_gas_mass=drift_gas_mass, dformat=dformat)
 
             # add CCS to original
-            org_df = pd.read_csv(f).dropna(how='all', axis=1)
-            org_df['calibrated_ccs'] = features['calibrated_ccs']
-            org_df.to_csv(out_dir + "/" + os.path.basename(f), index=False)
+            if dformat=="csv":
+                org_df = pd.read_csv(f).dropna(how='all', axis=1)
+                org_df['calibrated_ccs'] = features['calibrated_ccs']
+                org_df.to_csv(out_dir + "/" + os.path.basename(f), index=False)
+            else:
+                features.to_csv(out_dir + "/" + os.path.basename(f)+".csv", index=False)
 
         if (i + 1) % 500 == 0: print("[{0}/{1}] {2} - {3}".format(i + 1, len(files), filename, tunemix))
 
@@ -435,9 +439,11 @@ def curve_fit_with_calibrator(selected, file_list, calibrator,
             # plot points and lines
             axis.scatter(x, y, color=colors[i % num_colors], label=fname)
             axis.plot(xp, p(xp), lw=0.1, color=colors[i % num_colors])
-            curve_dict = {"file": f, "tunemix": fname, "poly": list(p),
-                "r2": r, "t0": t0,
-                "calib_method": calib_method}
+            curve_dict = {"file": f, "tunemix": fname,
+                          "adjusted_td": list(x), "reduced_ccs": list(y),
+                          "poly": list(p),
+                          "r2": r, "t0": t0,
+                          "calib_method": calib_method}
 
             plt.xlabel('Arrival time (ms)', fontsize=15)
             if frame_meta:
@@ -506,6 +512,7 @@ def curve_fit_with_calibrator(selected, file_list, calibrator,
 
             curve_dict = {
                 "file": f, "tunemix": fname, "C":C, "t0":t0,
+                "adjusted_td": list(x), "reduced_ccs": list(y),
                 "poly_td": list(poly_td), "poly_ccs": list(poly_td2),
                 "r2_td": r2_td, "r2_ccs": r2_ccs,
                 "calib_method": calib_method
@@ -574,7 +581,7 @@ def fit_calib_curves(FLAGS, config_params):
 
     # find the features for calibrants
     selected = find_features_with_calibrator(tunemix_files, calibrator,
-                                             sep=sep, ppm=ppm, dformat='mzmine')
+                                             sep=sep, ppm=ppm, dformat=FLAGS.format)
     print('[INFO] {} features are selected for determining calibration curves. (m/z tolerance: {}ppm)'.format(
         selected.shape[0], ppm))
 
@@ -657,10 +664,11 @@ def perform_CCS_computation(FLAGS, config_params, _calib_curves=None):
     # TODO: to avoid the Windows 10 Path issues
     fixed_paths = [path.replace("\\", "/") for path in glob.glob(FLAGS.feature_files)]
     feature_files = [fname for fname in fixed_paths if fname.split("/")[-1].split(sep)[0] in sample_meta.newFile.tolist()]
-    compute_ccs_mzmine(feature_files, sample_meta, calibration_curves, frame_meta,
-                       out_dir=FLAGS.output_dir,
-                       drift_gas_mass=drift_gas_mass, sep=sep,
-                       skip_calibrated_colname=FLAGS.skip_calibrated_colname)
+    compute_ccs(feature_files, sample_meta, calibration_curves, frame_meta,
+                out_dir=FLAGS.output_dir,
+                drift_gas_mass=drift_gas_mass, sep=sep,
+                skip_calibrated_colname=FLAGS.skip_calibrated_colname,
+                dformat=FLAGS.format)
 
 def assert_params_enough(FLAGS, config_params):
     '''check if all required parameters are given
