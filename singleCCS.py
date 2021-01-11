@@ -29,7 +29,7 @@ parser.add_argument(
     help='calibrant file contains the target m/z and CCS')
 
 parser.add_argument(
-    '--calib_method', type=str, choices=['poly','power'], default="poly",
+    '--calib_method', type=str, choices=['poly','power','linearized_power'], default="poly",
     help='poly: Polynormial Function, power: Linearized Power Function')
 
 # @deprecated
@@ -189,6 +189,9 @@ def calibrate_ccs_with_framemeta(file, calibrate_fn, frame_info=None, drift_gas_
         # TODO t0
         features['calibrated_ccs'] = poly_fn(features.dt - calibrate_fn.t0) / gamma
     elif calibrate_fn.calib_method=="power":
+        power_model = lambda t,a,b,c: a+b*t**c
+        features['calibrated_ccs'] = power_model(features.dt, *calibrate_fn.power_coeff) / gamma
+    elif calibrate_fn.calib_method=="linearized_power":
         corrected_dt = calibrate_fn.C * np.sqrt(features.mass/z) / 1000
         x = features.dt - corrected_dt - calibrate_fn.t0
         
@@ -248,7 +251,7 @@ def compute_ccs(files, meta_info, calibration_curves, frame_meta=None, out_dir="
                                                     drift_gas_mass=drift_gas_mass, dformat=dformat)
 
             # add CCS to original
-            if dformat=="csv":
+            if dformat=="mzmine":
                 org_df = pd.read_csv(f).dropna(how='all', axis=1)
                 org_df['calibrated_ccs'] = features['calibrated_ccs']
                 org_df.to_csv(out_dir + "/" + os.path.basename(f), index=False)
@@ -394,10 +397,11 @@ def curve_fit_with_calibrator(selected, file_list, calibrator,
                               fout=None):
     # curve fitting for each rep
     plt.close('all')
-    if calib_method == "poly":
-        fig, axis = plt.subplots(1, sharex=True, sharey=True, figsize=(10, 8))
-    elif calib_method == "power":
+    if calib_method == "linearized_power":
         fig, axis = plt.subplots(2, sharex=False, sharey=False, figsize=(10, 8))
+    else:
+        fig, axis = plt.subplots(1, sharex=True, sharey=True, figsize=(10, 8))
+        
     
     colors = sns.color_palette("Paired")
     num_colors = len(colors)
@@ -452,6 +456,58 @@ def curve_fit_with_calibrator(selected, file_list, calibrator,
                 plt.ylabel('Reduced CCS ($\Omega\'$)', fontsize=15)
             plt.legend(bbox_to_anchor=(1.04,1), loc="upper left", frameon=False)
         elif calib_method=="power":
+            from scipy.optimize import curve_fit
+            power_model = lambda t,a,b,c: a+b*t**c
+            x = data.dt
+
+            best_method = ''
+            best_r2 = -1e10
+            best_coeff = []
+            for method in ['trf', 'dogbox', 'lm']:
+                try:
+                    _coeff, covar = curve_fit(power_model,  x,  y, method=method, maxfev=10000)
+                    # r-squared
+                    yhat = power_model(x, *_coeff)
+                    ybar = np.sum(y) / len(y)
+                    ssreg = np.sum((yhat - ybar) ** 2)
+                    sstot = np.sum((y - ybar) ** 2)
+                    r2 = ssreg / sstot
+                    if best_r2 < r2:
+                        best_method = method
+                        best_r2 = r2
+                        best_coeff = _coeff
+                        if best_r2 > 0.999:
+                            break
+                except Exception as e:
+                    print("{} not working".format(method))
+            
+            print("Method:", best_method)
+            print("Td\' vs CCS\' R2: {}".format(best_r2))
+            print("Coefficients:", best_coeff)
+                
+
+            # plot points and lines
+            pad = 0.1 * (np.max(x) - np.min(x))
+            xp = np.linspace(np.min(x) - pad, np.max(x) + pad, 100)
+            axis.scatter(x, y, color=colors[i % num_colors], label=fname)
+            axis.plot(xp, power_model(xp, *best_coeff), color=colors[i % num_colors])
+            axis.set_xlabel('$t_A$', fontsize=15)
+            if frame_meta:
+                axis.set_ylabel('$\Omega\'$ With Pressure and Temperature', fontsize=15)
+            else:
+                axis.set_ylabel('$\Omega\'$', fontsize=15)
+
+            axis.legend(bbox_to_anchor=(1.04,1), loc="upper left", frameon=False)
+
+            curve_dict = {
+                "file": f, "tunemix": fname, 
+                "adjusted_td": list(x), "reduced_ccs": list(y),
+                "power_coeff": list(best_coeff),
+                "r2": best_r2,
+                "calib_method": calib_method
+            }
+
+        elif calib_method=="linearized_power":
             corrected_dt = C * np.sqrt(data.mass/z) / 1000
             x = data.dt - corrected_dt - t0
             pad = 0.1 * (np.max(x) - np.min(x))

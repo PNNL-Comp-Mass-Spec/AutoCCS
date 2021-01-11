@@ -89,7 +89,7 @@ parser.add_argument(
     help='Degree of the fitting polynomial for CCS calibration curves')
 
 parser.add_argument(
-    '--calib_method', type=str, choices=['poly','power'], default="poly",
+    '--calib_method', type=str, choices=['poly','power', 'linearized_power'], default="poly",
     help='poly: Polynormial Function, power: Linearized Power Function')
 
 ################################################

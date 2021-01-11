@@ -13,7 +13,7 @@ class SteppedFieldCCS:
             {mass, temperatures, pressures, voltages, arrival_time}
         """
         self._metadata = {}
-        # self.mass = params['mass']
+        # self.mz = params['mass']
         # self.temperatures = params['temp']
         # self.pressures = params['pressures']
         # self.voltages = params['voltages']
@@ -52,7 +52,7 @@ class SteppedFieldCCS:
         self._fields = meta_df.ImsField.tolist()
         self.voltages = (meta_df.ImsField*old_drift_tube_length).tolist()
         self._arrival_time = meta_df.dt.tolist()
-        self.mass = adduct_mass
+        self.mz = adduct_mass
         self.charge_state = charge_state
 
         # params['temp'] = df.ImsTemperature.tolist()
@@ -61,7 +61,7 @@ class SteppedFieldCCS:
         # params['arrival_time'] = df.dt.tolist()
         # params['neutral_mass'] = config_params['neutral_mass']
         # params['drift_tube_length'] = config_params['drift_tube_length']
-        # params['mass'] = ion_mz
+        # params['mz'] = ion_mz
 
     @property
     def r2(self):
@@ -144,7 +144,7 @@ class SteppedFieldCCS:
         self._p_v = P_torr / Vcell
         # E/N (Td) = E / P(torr) / 0.3535
         E_N = (E / P_torr) / 0.3535
-        mass_in_kg = self.mass * self.charge_state * 1.66054E-27
+        mass_in_kg = self.mz * self.charge_state * 1.66054E-27
         neutral_mass_in_kg = neutral_mass * 1.66054E-27
         reduced_mass_in_kg = (mass_in_kg * neutral_mass_in_kg / (mass_in_kg + neutral_mass_in_kg))
         # ========================
