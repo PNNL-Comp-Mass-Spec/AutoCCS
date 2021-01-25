@@ -1,5 +1,6 @@
 '''compute CCS in multi-step experiments
 '''
+import traceback
 import pandas as pd
 import numpy as np
 
@@ -165,8 +166,8 @@ def is_in_tolerance(x, mass, ppm):
 def mass_error(x, mass):
     return abs(x - mass) / mass * 1e6
 
-def find_features_maxint(features, metadata, ion_mz, ppm):
-    df = features[is_in_tolerance(features.mass, ion_mz, ppm)]
+def find_features_maxint(features, metadata, ion_mz, z, ppm):
+    df = features[is_in_tolerance(features.mz, ion_mz, ppm) & (features.z==z)]
     if df.shape[0] == 0: return df
     
     #  if 'frame' column in metadata, delete it
@@ -177,13 +178,15 @@ def find_features_maxint(features, metadata, ion_mz, ppm):
     df = df.sort_values(by='frame')
     return df
 
-def find_features(features, metadata, ion_mz, ppm,
+def find_features(features, metadata, ion_mz, z, ppm,
                   threshold_num_isotopes=2,
                   threshold_intensity_rank=3):
     if 'num_isotopes' in features.columns:
-        df = features[is_in_tolerance(features.mass, ion_mz, ppm) & (features.num_isotopes>=threshold_num_isotopes)]
+        df = features[is_in_tolerance(features.mz, ion_mz, ppm) & \
+            (features.z==z) & \
+            (features.num_isotopes>=threshold_num_isotopes)]
     else:
-        df = features[is_in_tolerance(features.mass, ion_mz, ppm)]
+        df = features[is_in_tolerance(features.mz, ion_mz, ppm) & (features.z==z)]
     if df.shape[0] == 0: return df
     
     # filter out small peaks by ranking threshold
@@ -382,9 +385,9 @@ def get_ccs(FLAGS, comp_id, target_list, config_params):
                 start_time = time.time()
                 
                 if (FLAGS.maxint):
-                    ccs_features_within_mz = find_features_maxint(features, metadata, adduct_mass, config_params['mz_tolerance'])
+                    ccs_features_within_mz = find_features_maxint(features, metadata, adduct_mass, charge_state, config_params['mz_tolerance'])
                 else:
-                    ccs_features_within_mz = find_features(features, metadata, adduct_mass, config_params['mz_tolerance'],
+                    ccs_features_within_mz = find_features(features, metadata, adduct_mass, charge_state, config_params['mz_tolerance'],
                                                        threshold_num_isotopes=FLAGS.num_isotopes_threshold,
                                                        threshold_intensity_rank=FLAGS.intensity_rank_threshold)
 
@@ -451,6 +454,7 @@ def get_ccs(FLAGS, comp_id, target_list, config_params):
 
         ##################################################
     except Exception as e:
+        traceback.print_exc()
         if hasattr(e, 'strerror'):
             print ("[ERROR]: {0} ({1})".format(e.strerror, rep_file))
         else:
@@ -468,7 +472,7 @@ def compute(df, ion_mz, config_params):
     params['arrival_time'] = df.dt.tolist()
     params['neutral_mass'] = config_params['neutral_mass']
     params['drift_tube_length'] = config_params['drift_tube_length']
-    params['mass'] = ion_mz
+    params['mz'] = ion_mz
     # print(params)
     ccs, prop = SteppedFieldCCS(params=params).compute()
     # print("CCS:", ccs)
@@ -491,7 +495,7 @@ def plot_ccs_regression_lines(axis, adduct, adduct_mass, df, prop, title, drift_
     for r in df.itertuples():
         axis.text((r.ImsPressure / (r.ImsField * drift_tube_length) + (p_vmax - p_vmin)/7), r.dt,
                   # '{0:.3f}ppm, {1:.2f}(z_score={2:.3f})'.format(mass_error(r.mass, addmass), r.intensity, r.intensity_z),
-                  '{0:.3f}ppm, z_score={1:.2f}'.format(mass_error(r.mass, addmass), r.intensity_z),
+                  '{0:.3f}ppm, z_score={1:.2f}'.format(mass_error(r.mz, addmass), r.intensity_z),
                   color='k', fontsize=10)
 
     axis.plot(p_v, 1000 * (prop['intercept'] + prop['slope']*p_v), 'r', label='fitted line')
@@ -564,7 +568,7 @@ def plot_intensity_distribution(features, adducts_mass, ax, ppm=50):
         ax.axvline(np.log(10*np.median(features.intensity_org)), linestyle=':')
         ax.axvline(np.log(np.mean(features.intensity_org)+2*np.std(features.intensity_org)), linestyle='-.')
         for adduct in adducts_mass:
-            sel = features[is_in_tolerance(features.mass, adducts_mass[adduct][0], ppm)]
+            sel = features[is_in_tolerance(features.mz, adducts_mass[adduct][0], ppm)]
             if sel.shape[0] > 0:
                 ax.scatter(np.log(sel['intensity_org']), np.zeros(sel.shape[0]), c=get_adducts_colors(adduct))
         ax.set_xlabel('log(Intensity)')

@@ -35,7 +35,7 @@ class SteppedFieldCCS:
             self._metadata['intensity_org_' + str(feature.frame)] = feature.intensity_org
             self._metadata['intensity_z_' + str(feature.frame)] = feature.intensity_z
             self._metadata['intensity_' + str(feature.frame)] = feature.intensity
-            self._metadata['mass_error_' + str(feature.frame)] = mass_ppm_error(feature.mass, adduct_mass)
+            self._metadata['mass_error_' + str(feature.frame)] = mass_ppm_error(feature.mz, adduct_mass)
             
             self._mppid.append(feature.mppid)
             self._dt.append(feature.dt)

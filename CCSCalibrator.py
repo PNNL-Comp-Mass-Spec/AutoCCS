@@ -75,7 +75,7 @@ class CCSCalibrator:
                 mz = row[1]['m/z']
                 reduced_ccs = row[1]['reduced_ccs']
                 ccs = row[1]['CCS']
-                _ff = features[is_in_tolerance(features.mass, mz, ppm)]
+                _ff = features[is_in_tolerance(features.mz, mz, ppm)]
                 _ff = _ff.assign(calibrants_mz=mz, ccs=ccs, reduced_ccs=reduced_ccs)
                 if selected.shape[0] == 0:
                     selected = _ff

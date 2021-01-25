@@ -85,15 +85,15 @@ def get_features_from_cef(cef, max_normalize=True):
         if 'Compound' in j:
             mppid = j['@mppid']
         if 'Location' in j:
-            mz = j['@m']
+            mass = j['@m']
             rt = j['@rt']
             intensity = j['@y']
             dt = j['@dt']
-            rst.append({'mppid':mppid, 'mz':float(mz), 'rt':float(rt), 'intensity':float(intensity), 'dt':float(dt)})
+            rst.append({'mppid':mppid, 'mass':float(mass), 'rt':float(rt), 'intensity':float(intensity), 'dt':float(dt)})
         if 'MSPeaks' in j:
             for k in j['MSPeaks']:
                 if ('p' in k):
-                    mspeaks.append({'mppid':mppid, 'mass':float(k['@x']), 'intensity_org':float(k['@y']), 'z':k['@z'], 's':k['@s']})
+                    mspeaks.append({'mppid':mppid, 'mz':float(k['@x']), 'intensity_org':float(k['@y']), 'z':float(k['@z']), 's':k['@s']})
     df = pd.DataFrame(rst)
     mspeaks = pd.DataFrame(mspeaks)
     if df.shape[0] > 0:
@@ -107,24 +107,28 @@ def get_features_from_cef(cef, max_normalize=True):
         # mspeaks['num_isotopes'] = num_isotopes
         
         df = pd.merge(mspeaks, df, left_on="mppid", right_on="mppid", how='inner')
+    
+    # if z=0, it's 1
+    avg_z = df.z.mean()
+    df.loc[df.z==0, 'z'] = avg_z/abs(avg_z)
     return df, mspeaks#, num_isotopes
 
 
-def get_features_from_mzmine_csv\
-                (csv, max_normalize=True):
+def get_features_from_mzmine_csv(csv, max_normalize=True):
     df = pd.read_csv(csv)
     if df.shape[0] == 0: return df, None
     col_id = [c for c in df.columns if c.endswith('row ID')][0]
     col_area = [c for c in df.columns if c.endswith('Peak area')][0]
     col_height = [c for c in df.columns if c.endswith('Peak height')][0]
     col_mz = [c for c in df.columns if c.endswith('Peak m/z')][0]
+    col_z = [c for c in df.columns if c.endswith('Peak charge')][0]
     col_dt = [c for c in df.columns if c.endswith('Peak RT')][0]
     if 'calibrated_ccs' in df.columns:
-        cols = [col_id, col_mz, col_dt, col_area, col_height, 'calibrated_ccs']
-        colnames = ['mppid', 'mass', 'dt', 'intensity', 'height', 'calibrated_ccs']
+        cols = [col_id, col_mz, col_z, col_dt, col_area, col_height, 'calibrated_ccs']
+        colnames = ['mppid', 'mz', 'z', 'dt', 'intensity', 'height', 'calibrated_ccs']
     else:
-        cols = [col_id, col_mz, col_dt, col_area, col_height]
-        colnames = ['mppid', 'mass', 'dt', 'intensity', 'height']
+        cols = [col_id, col_mz, col_z, col_dt, col_area, col_height]
+        colnames = ['mppid', 'mz', 'z', 'dt', 'intensity', 'height']
     
     df = df[cols].copy()
     df.columns = colnames
@@ -133,4 +137,9 @@ def get_features_from_mzmine_csv\
         df['intensity_z'] = (df.intensity - df.intensity.mean())/df.intensity.std()
         if max_normalize:
             df.intensity /= df.intensity.max()
+
+    # if z=0, it's 1
+    avg_z = df.z.mean()
+    df.loc[df.z==0, 'z'] = avg_z/abs(avg_z)
+
     return df, None

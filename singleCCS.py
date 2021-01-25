@@ -157,27 +157,27 @@ def nearest_tunemix(row, **kwargs):
     return temp.loc[minidx].newFile
 
 
-def calibrate_ccs(file, calibrate_fn, drift_gas_mass=28.006148, dformat='cef', z=1):
+def calibrate_ccs(file, calibrate_fn, drift_gas_mass=28.006148, dformat='cef'):
     if dformat == 'cef':
         get_features = get_features_from_cef
     elif dformat == 'mzmine':
         get_features = get_features_from_mzmine_csv
     features, _ = get_features(file)
-    gamma = np.sqrt(features.mass*drift_gas_mass / (features.mass + drift_gas_mass)) / z
+    gamma = np.sqrt(features.mz*features.z*drift_gas_mass / (features.mz*features.z + drift_gas_mass)) / features.z
     beta = calibrate_fn.beta
     tfix = calibrate_fn.tfix
     features['calibrated_ccs'] = (features.dt - tfix) / (beta * gamma)
     return features
 
 
-def calibrate_ccs_with_framemeta(file, calibrate_fn, frame_info=None, drift_gas_mass=28.006148, dformat='cef', z=1):
+def calibrate_ccs_with_framemeta(file, calibrate_fn, frame_info=None, drift_gas_mass=28.006148, dformat='cef'):
     if dformat == 'cef':
         get_features = get_features_from_cef
     elif dformat == 'mzmine':
         get_features = get_features_from_mzmine_csv
     features, _ = get_features(file)
 
-    gamma = np.sqrt(features.mass*drift_gas_mass / (features.mass + drift_gas_mass)) / z
+    gamma = np.sqrt(features.mz*features.z*drift_gas_mass / (features.mz*features.z + drift_gas_mass)) / features.z
 
     if calibrate_fn.calib_method=="poly":
         poly_fn = np.poly1d(calibrate_fn.poly)
@@ -192,7 +192,7 @@ def calibrate_ccs_with_framemeta(file, calibrate_fn, frame_info=None, drift_gas_
         power_model = lambda t,a,b,c: a+b*t**c
         features['calibrated_ccs'] = power_model(features.dt, *calibrate_fn.power_coeff) / gamma
     elif calibrate_fn.calib_method=="linearized_power":
-        corrected_dt = calibrate_fn.C * np.sqrt(features.mass/z) / 1000
+        corrected_dt = calibrate_fn.C * np.sqrt(features.mz) / 1000
         x = features.dt - corrected_dt - calibrate_fn.t0
         
         # linear regression of td' and reduced CCS
@@ -261,7 +261,7 @@ def compute_ccs(files, meta_info, calibration_curves, frame_meta=None, out_dir="
         if (i + 1) % 500 == 0: print("[{0}/{1}] {2} - {3}".format(i + 1, len(files), filename, tunemix))
 
 
-def get_target_ions_all(files, meta_info, mass=395.149, ppm=40, ion_mode='POS'):
+def get_target_ions_all(files, meta_info, target_mz=395.149, ppm=40, ion_mode='POS'):
     '''
         all ions within mass range
     '''
@@ -288,7 +288,7 @@ def get_target_ions_all(files, meta_info, mass=395.149, ppm=40, ion_mode='POS'):
         corrected_time = selected_info.AcquiredTime.tolist()[0]
 
         features, _ = get_features_from_mzmine_csv(f)
-        _ff = features[is_in_tolerance(features.mass, mass=mass, ppm=ppm)].copy()
+        _ff = features[is_in_tolerance(features.mz, mass=target_mz, ppm=ppm)].copy()
         if _ff.shape[0] == 0:
             continue
         else:
@@ -307,7 +307,7 @@ def get_target_ions_all(files, meta_info, mass=395.149, ppm=40, ion_mode='POS'):
         return pd.DataFrame()
 
 
-def get_target_ions(files, meta_info, mass=395.149, ppm=40):
+def get_target_ions(files, meta_info, target_mz=395.149, ppm=40):
     '''
         most intense
     '''
@@ -318,7 +318,7 @@ def get_target_ions(files, meta_info, mass=395.149, ppm=40):
         corrected_time = meta_info[meta_info.newFile == filename].corrected_time.tolist()[0]
 
         features, _ = get_features_from_mzmine_csv(f)
-        _ff = features[is_in_tolerance(features.mass, mass=mass, ppm=ppm)].copy()
+        _ff = features[is_in_tolerance(features.mz, mass=target_mz, ppm=ppm)].copy()
         if _ff.shape[0] > 1:
             # print(f, _ff.shape, _ff.intensity_org.tolist(), _ff.dt.tolist())
             _ff = _ff.sort_values(by='intensity_org').iloc[-1, :]
@@ -392,7 +392,7 @@ def curve_fit_with_calibrator(selected, file_list, calibrator,
                               frame_meta=None, sep="",
                               drift_gas_mass=28.006148,
                               calib_method="poly",
-                              deg=1, z=1,
+                              deg=1,
                               C=0, t0=0,
                               fout=None):
     # curve fitting for each rep
@@ -420,19 +420,19 @@ def curve_fit_with_calibrator(selected, file_list, calibrator,
             continue
         print(i, f, data.shape)
 
-        gamma = np.sqrt(data.mass * drift_gas_mass / (data.mass + drift_gas_mass)) / z
+        print(data.mz * data.z)
 
-        if frame_meta:
-            print('frame_meta', frame_meta)
-            p_torr, temp = frame_meta[fname]
-            print('Pressure (Torr):{}, Temperature (C):{}'.format(p_torr, temp))
-            t_k = temp + 273.15
-            y = gamma * data.ccs * p_torr / np.sqrt(t_k)
-        else:
-            y = gamma * data.ccs
+        gamma = np.sqrt(data.mz * data.z * drift_gas_mass / (data.mz * data.z + drift_gas_mass)) / data.z
+        y = gamma * data.ccs
 
         if calib_method=="poly":
-            # TODO t0
+            if frame_meta:
+                print('frame_meta', frame_meta)
+                p_torr, temp = frame_meta[fname]
+                print('Pressure (Torr):{}, Temperature (C):{}'.format(p_torr, temp))
+                t_k = temp + 273.15
+                y = gamma * data.ccs * p_torr / np.sqrt(t_k)
+            
             x = data.dt - t0
             pad = 0.1 * (np.max(x) - np.min(x))
             xp = np.linspace(np.min(x) - pad, np.max(x) + pad, 100)
@@ -508,14 +508,14 @@ def curve_fit_with_calibrator(selected, file_list, calibrator,
             }
 
         elif calib_method=="linearized_power":
-            corrected_dt = C * np.sqrt(data.mass/z) / 1000
+            corrected_dt = C * np.sqrt(data.mz) / 1000
             x = data.dt - corrected_dt - t0
             pad = 0.1 * (np.max(x) - np.min(x))
             xp = np.linspace(np.min(x) - pad, np.max(x) + pad, 100)
 
             lnx = np.log(x)
             lny = np.log(y)
-            
+
             # linear regression of td' and reduced CCS
             poly_td = np.poly1d(np.polyfit(lnx, lny, 1))
             # self.calibrate_fn = poly
@@ -645,7 +645,7 @@ def fit_calib_curves(FLAGS, config_params):
                                                     frame_meta=frame_meta,
                                                     sep=sep, drift_gas_mass=drift_gas_mass,
                                                     calib_method=FLAGS.calib_method,
-                                                    deg=FLAGS.degree, z=1,
+                                                    deg=FLAGS.degree,
                                                     C=C, t0=t0,
                                                     fout=FLAGS.output_dir + "/calibration_output.{}.pdf".format(FLAGS.calib_method))
 
@@ -775,7 +775,7 @@ def single(FLAGS, config_params):
                 }
             for a in adducts:
                 adduct_mass = adducts[a]
-                internal_standard_ions = get_target_ions_all(feature_files, meta_info, mass=adduct_mass, ppm=ppm,
+                internal_standard_ions = get_target_ions_all(feature_files, meta_info, target_mz=adduct_mass, ppm=ppm,
                                                              ion_mode=ion_mode)
                 if internal_standard_ions.shape[0] > 0:
                     plot_internal_standard(internal_standard_ions, y='calibrated_ccs', adduct=a, mode=ion_mode)
