@@ -38,6 +38,8 @@ pip install -r requirements.txt
 ## Tutorial with demo data ##
 In this tutorial, we demonstrated the CCS determination using AutoCCS for the Agilent tune-mix samples in three different platforms: stepped-field DTIMS-MS, single-field RapidFire-DTIMS-MS, SLIM-based IMS.
 
+Demo dataset is publicly available at MassIVE (Dataset ID: [MSV000085979](https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?accession=MSV000085979))
+
 <i>For sake of readability, the input parameters are split over multiple lines. When using the command line, however, all parameters should be included as a single line.</i>
 
 #### Stepped-Field DTIMS-MS ####
