@@ -71,16 +71,18 @@ class CCSCalibrator:
         """find the features"""
         selected = pd.DataFrame()
         if self.calibrants.shape[0] > 0:
-            for row in self.calibrants[self.calibrants.Ionization == ionization].iterrows():
+            for row in self.calibrants[self.calibrants.Ionization.str.upper() == ionization.upper()].iterrows():
                 mz = row[1]['m/z']
                 reduced_ccs = row[1]['reduced_ccs']
                 ccs = row[1]['CCS']
-                _ff = features[is_in_tolerance(features.mz, mz, ppm)]
+                _ff = features[is_in_tolerance(features.mz, mz, ppm) & (features.z == abs(row[1]['z']))]
                 _ff = _ff.assign(calibrants_mz=mz, ccs=ccs, reduced_ccs=reduced_ccs)
                 if selected.shape[0] == 0:
                     selected = _ff
                 else:
                     selected = selected.append(_ff)
+            if selected.empty:
+                return None
             # TODO: now simply select the most intensive peaks
             temp = selected.sort_values(by='intensity_org').drop_duplicates(subset=['calibrants_mz'], keep='last')
             return temp

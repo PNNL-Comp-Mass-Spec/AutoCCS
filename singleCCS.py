@@ -4,6 +4,7 @@ import numpy as np
 import xml.etree.ElementTree
 import glob
 import os
+from pathlib import Path
 
 from sys import platform as sys_pf
 
@@ -367,7 +368,9 @@ def plot_internal_standard(internal_standard_df, y='dt', adduct="[M+H]", mode='P
     plt.savefig('{0}-{1}-internal_standard_ccs.pdf'.format(mode, adduct))
 
 
-def find_features_with_calibrator(file_list, calibrator, sep="", ppm=20, dformat='mzmine'):
+def find_features_with_calibrator(file_list, ion_modes, calibrator, sep="", ppm=20, dformat='mzmine'):
+    assert len(file_list) == len(ion_modes)
+
     if dformat == 'cef':
         get_features = get_features_from_cef
     elif dformat == 'mzmine':
@@ -375,17 +378,20 @@ def find_features_with_calibrator(file_list, calibrator, sep="", ppm=20, dformat
 
     # read feature files
     selected = []
-    for i, f in enumerate(file_list):
+    for f, ionization in zip(file_list, ion_modes):
         features, _ = get_features(f)
 
-        ionization = "pos"
-        if "NEG" in f.upper(): ionization = "neg"
-
         tmp = calibrator.find_calibrant_features(features, ppm=ppm, ionization=ionization)
+        if tmp is None: continue
+
         tmp['filename'] = f.split("/")[-1].split(sep)[0]
         selected.append(tmp)
-    selected = pd.concat(selected, ignore_index=True)
-    return selected
+
+    if selected:
+        selected = pd.concat(selected, ignore_index=True)
+        return selected
+    else:
+        return None
 
 
 def curve_fit_with_calibrator(selected, file_list, calibrator,
@@ -596,7 +602,7 @@ def curve_fit_with_calibrator(selected, file_list, calibrator,
     return curve_fit_fn
 
 
-def fit_calib_curves(FLAGS, config_params):
+def fit_calib_curves(FLAGS, config_params, sample_meta):
     C, t0 = 0, 0
     if "C" in config_params: C = config_params['C']
     if "accumulation_time" in config_params: t0 = config_params['accumulation_time']
@@ -636,8 +642,15 @@ def fit_calib_curves(FLAGS, config_params):
         print('[INFO] No frame meta data file is given.', frame_meta)
 
     # find the features for calibrants
-    selected = find_features_with_calibrator(tunemix_files, calibrator,
+    filename2ion = sample_meta[['Ionization','newFile']].set_index("newFile").to_dict()['Ionization']
+    ion_modes = [filename2ion[Path(f).stem.split(sep)[0]] for f in tunemix_files]
+    selected = find_features_with_calibrator(tunemix_files, ion_modes, calibrator,
                                              sep=sep, ppm=ppm, dformat=FLAGS.format)
+    
+    if selected is None:
+        print("[ERROR] couldn't find any features for good calibration curves")
+        raise Exception
+
     print('[INFO] {} features are selected for determining calibration curves. (m/z tolerance: {}ppm)'.format(
         selected.shape[0], ppm))
 
@@ -660,11 +673,7 @@ def fit_calib_curves(FLAGS, config_params):
         print("[ERROR] cannot find any good calibration curves")
         raise Exception
 
-
-def perform_CCS_computation(FLAGS, config_params, _calib_curves=None):
-    drift_gas_mass = config_params['neutral_mass']
-    sep = config_params['suffix_raw'].split("{")[0]
-
+def get_sample_meta(FLAGS):
     if FLAGS.sample_meta:
         print("#" * 80)
         print("# Collect sample metadata from", FLAGS.sample_meta)
@@ -682,9 +691,15 @@ def perform_CCS_computation(FLAGS, config_params, _calib_curves=None):
             sample_meta['time'] = sample_meta.AcquiredTime.apply(datetime)
             tunemix = sample_meta[sample_meta[FLAGS.colname_for_sample_type] == FLAGS.tunemix_sample_type].copy()
             sample_meta['tunemix'] = sample_meta.apply(nearest_tunemix, axis=1, tunemix=tunemix)
+        return sample_meta
     else:
         print("[ERROR] --sample_meta is required to perform ccs computation")
         raise Exception
+
+
+def perform_CCS_computation(FLAGS, config_params, sample_meta, _calib_curves=None):
+    drift_gas_mass = config_params['neutral_mass']
+    sep = config_params['suffix_raw'].split("{")[0]
 
     print("#" * 80)
     if _calib_curves is None:
@@ -736,16 +751,18 @@ def single(FLAGS, config_params):
     assert_params_enough(FLAGS, config_params)
     os.makedirs(FLAGS.output_dir, exist_ok=True)
 
+    sample_meta = get_sample_meta(FLAGS)
+
     if FLAGS.single_mode == 'fit':
-        calibrate_functions = fit_calib_curves(FLAGS, config_params)
+        calibrate_functions = fit_calib_curves(FLAGS, config_params, sample_meta)
         print(calibrate_functions)
 
     elif FLAGS.single_mode == 'ccs':
-        perform_CCS_computation(FLAGS, config_params)
+        perform_CCS_computation(FLAGS, config_params, sample_meta)
 
     elif FLAGS.single_mode == 'batch':
-        calibrate_functions = fit_calib_curves(FLAGS, config_params)
-        perform_CCS_computation(FLAGS, config_params, calibrate_functions)
+        calibrate_functions = fit_calib_curves(FLAGS, config_params, sample_meta)
+        perform_CCS_computation(FLAGS, config_params, sample_meta, calibrate_functions)
 
     elif FLAGS.single_mode == 'standard':
         ''' 
