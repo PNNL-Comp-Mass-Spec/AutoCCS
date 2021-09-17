@@ -119,6 +119,8 @@ Also, it allows users to apply non-linear regression based on the linearized pow
   --calib_method power
 ```
 
+## Citation
+Lee, J-Y, Bilbao, A, Conant, CR, Bloodsworth, KJ, Orton, DJ, Zhou, M, ... & Metz, TO (2021). AutoCCS: Automated collision cross section calculation software for ion mobility spectrometry-mass spectrometry. <i>Bioinformatics</i>. https://doi.org/10.1093/bioinformatics/btab429
 
 ## Contacts ##
 Written by Joon-Yong Lee for the Department of Energy (PNNL, Richland, WA)\
