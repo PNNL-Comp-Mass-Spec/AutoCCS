@@ -1,13 +1,10 @@
 '''compute CCS in multi-step experiments
 '''
 import traceback
-import pandas as pd
-import numpy as np
-
-import xml.etree.ElementTree
 import time
 import glob
 import os
+from pathlib import Path
 
 from sys import platform as sys_pf
 if sys_pf == 'darwin':
@@ -385,9 +382,9 @@ def get_ccs(FLAGS, comp_id, target_list, config_params):
                 start_time = time.time()
                 
                 if (FLAGS.maxint):
-                    ccs_features_within_mz = find_features_maxint(features, metadata, adduct_mass, charge_state, config_params['mz_tolerance'])
+                    ccs_features_within_mz = find_features_maxint(features, metadata, adduct_mass, abs(charge_state), config_params['mz_tolerance'])
                 else:
-                    ccs_features_within_mz = find_features(features, metadata, adduct_mass, charge_state, config_params['mz_tolerance'],
+                    ccs_features_within_mz = find_features(features, metadata, adduct_mass, abs(charge_state), config_params['mz_tolerance'],
                                                        threshold_num_isotopes=FLAGS.num_isotopes_threshold,
                                                        threshold_intensity_rank=FLAGS.intensity_rank_threshold)
 
@@ -420,7 +417,6 @@ def get_ccs(FLAGS, comp_id, target_list, config_params):
                             ccs_prop['adduct'] = adduct
                             ccs_prop['replicate'] = rep_file
                             ccs_prop['name'] = neutral_name
-                            # ccs_prop['CAS'] = list(target_info.CAS)[0]
                             ccs_results.append(ccs_prop)
 
                         if num_reps == 1:
@@ -435,7 +431,7 @@ def get_ccs(FLAGS, comp_id, target_list, config_params):
                             adduct_mass,
                             ccs_features_within_mz,
                             ccs_list,
-                            title=rep_file.rsplit("/", 1)[1],
+                            title=Path(rep_file).name,
                             drift_tube_length=config_params['drift_tube_length'])
                         is_filled[adduct] = True
                         ##################################################
@@ -626,8 +622,8 @@ def multi(FLAGS, config_params):
     else: target_list = pd.read_csv(FLAGS.target_list_file, sep='\t')
     num_targets = target_list.shape[0]
     
-    target_list = pd.concat([target_list]*2,ignore_index=True)
     if "Ionization" not in target_list.columns:
+        target_list = pd.concat([target_list]*2, ignore_index=True)
         target_list['Ionization'] = ['pos']*num_targets+['neg']*num_targets
     target_list['ID']= target_list.CompoundID.str.cat("_"+target_list.Ionization)
     target_list = target_list.fillna(method='ffill')
