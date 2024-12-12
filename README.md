@@ -125,11 +125,13 @@ Also, it allows users to apply non-linear regression based on the linearized pow
 JY Lee, A Bilbao, CR Conant, KJ Bloodsworth, DJ Orton, M Zhou, ... & TO Metz (2021). AutoCCS: Automated collision cross section calculation software for ion mobility spectrometry-mass spectrometry. <i>Bioinformatics</i>. DOI: [10.1093/bioinformatics/btab429](https://doi.org/10.1093/bioinformatics/btab429), [PMID 28763190](https://pubmed.ncbi.nlm.nih.gov/28763190/)
 
 ## Contacts ##
+
 Written by Joon-Yong Lee for the Department of Energy (PNNL, Richland, WA)\
 Copyright 2020, Battelle Memorial Institute. All Rights Reserved.\
-E-mail: joonyong.lee@pnnl.gov or proteomics@pnnl.gov\
-Website: https://omics.pnl.gov/ or https://panomics.pnnl.gov/
+E-mail: proteomics@pnnl.gov\
+Website: https://github.com/PNNL-Comp-Mass-Spec/AutoCCS or https://www.pnnl.gov/integrative-omics
 
 
 ## License ##
+
 AutoCCS is licensed under the BSD 2-Clause License; [License](license.txt)
