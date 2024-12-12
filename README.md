@@ -4,18 +4,19 @@ Automated Collision Cross Section calculation software for ion mobility-mass spe
 
 
 ## Main features ##
+
 AutoCCS supports the following platforms and methods:
 - Platforms
-  - Drift tube-based ion mobility spectrometry coupled with mass spectrometry (DTIMS-MS) instrument [(Stow,S.M. et al., 2017)](https://doi.org/10.1021/acs.analchem.7b01729)
-  - Traveling wave based-IMS MS (TWIMS-MS) such as Structures for Lossless Ion Manipulations (SLIM)-based IMS-MS [(Wojcik,R. et al., 2019)](https://doi.org/10.1021/acs.analchem.9b02808)
+  - Drift tube-based ion mobility spectrometry coupled with mass spectrometry (DTIMS-MS) instrument [(Stow,S.M. et al., 2017)](https://doi.org/10.1021/acs.analchem.7b01729), [PMID 28763190](https://pubmed.ncbi.nlm.nih.gov/28763190/)
+  - Traveling wave based-IMS MS (TWIMS-MS) such as Structures for Lossless Ion Manipulations (SLIM)-based IMS-MS [(Wojcik,R. et al., 2019)](https://doi.org/10.1021/acs.analchem.9b02808), [PMID 31450886](https://pubmed.ncbi.nlm.nih.gov/31450886/)
 - Methods
-  - Stepped field method [(Stow,S.M. et al., 2017)](https://doi.org/10.1021/acs.analchem.7b01729)
-  - Single field method [(Kurulugama,R.T. et al., 2015)](https://doi.org/10.1039/C5AN00991J)
+  - Stepped field method [(Stow,S.M. et al., 2017)](https://doi.org/10.1021/acs.analchem.7b01729), [PMID 28763190](https://pubmed.ncbi.nlm.nih.gov/28763190/)
+  - Single field method [(Kurulugama,R.T. et al., 2015)](https://doi.org/10.1039/c5an00991j), [PMID 26178817](https://pubmed.ncbi.nlm.nih.gov/26178817/)
   - Traveling wave-based method 
 - Calibration functions for single field and traveling wave-based methods
   - Linear function
   - Polynomial functions (e.g. quadratic or cubic functions)
-  - Linearized power function [(Ruotolo,B.T. et al., 2008)](https://doi.org/10.1038/nprot.2008.78)
+  - Linearized power function [(Ruotolo,B.T. et al., 2008)](https://doi.org/10.1038/nprot.2008.78), [PMID 18600219](https://pubmed.ncbi.nlm.nih.gov/18600219/)
   
 
 ## How to _install_ AutoCCS ##
@@ -119,8 +120,9 @@ Also, it allows users to apply non-linear regression based on the linearized pow
   --calib_method power
 ```
 
-## Citation
-Lee, J-Y, Bilbao, A, Conant, CR, Bloodsworth, KJ, Orton, DJ, Zhou, M, ... & Metz, TO (2021). AutoCCS: Automated collision cross section calculation software for ion mobility spectrometry-mass spectrometry. <i>Bioinformatics</i>. https://doi.org/10.1093/bioinformatics/btab429
+## Citation ##
+
+JY Lee, A Bilbao, CR Conant, KJ Bloodsworth, DJ Orton, M Zhou, ... & TO Metz (2021). AutoCCS: Automated collision cross section calculation software for ion mobility spectrometry-mass spectrometry. <i>Bioinformatics</i>. DOI: [10.1093/bioinformatics/btab429](https://doi.org/10.1093/bioinformatics/btab429), [PMID 28763190](https://pubmed.ncbi.nlm.nih.gov/28763190/)
 
 ## Contacts ##
 Written by Joon-Yong Lee for the Department of Energy (PNNL, Richland, WA)\
