@@ -2,6 +2,7 @@
 
 Automated Collision Cross Section calculation software for ion mobility-mass spectrometry
 
+[![DOI](https://zenodo.org/badge/282083943.svg)](https://doi.org/10.5281/zenodo.14428077)
 
 ## Main features ##
 
@@ -19,7 +20,7 @@ AutoCCS supports the following platforms and methods:
   - Linearized power function [(Ruotolo,B.T. et al., 2008)](https://doi.org/10.1038/nprot.2008.78), [PMID 18600219](https://pubmed.ncbi.nlm.nih.gov/18600219/)
   
 
-## How to _install_ AutoCCS ##
+## How to install AutoCCS ##
 
 #### Use `conda` environment (Recommended) ####
 
