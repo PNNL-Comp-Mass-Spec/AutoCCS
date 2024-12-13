@@ -7,13 +7,13 @@ def mass_ppm_error(x, mass):
 class SteppedFieldCCS:
     """compute the ccs for the multi-fields (stepped field method)
     """
-    def __init__(self, meta_df, adduct_mass, old_drift_tube_length):
+    def __init__(self, meta_df, adduct_mass, old_drift_tube_length, charge_state=1):
         """
         metadata: a dictionary for
             {mass, temperatures, pressures, voltages, arrival_time}
         """
         self._metadata = {}
-        # self.mass = params['mass']
+        # self.mz = params['mass']
         # self.temperatures = params['temp']
         # self.pressures = params['pressures']
         # self.voltages = params['voltages']
@@ -35,7 +35,7 @@ class SteppedFieldCCS:
             self._metadata['intensity_org_' + str(feature.frame)] = feature.intensity_org
             self._metadata['intensity_z_' + str(feature.frame)] = feature.intensity_z
             self._metadata['intensity_' + str(feature.frame)] = feature.intensity
-            self._metadata['mass_error_' + str(feature.frame)] = mass_ppm_error(feature.mass, adduct_mass)
+            self._metadata['mass_error_' + str(feature.frame)] = mass_ppm_error(feature.mz, adduct_mass)
             
             self._mppid.append(feature.mppid)
             self._dt.append(feature.dt)
@@ -52,7 +52,8 @@ class SteppedFieldCCS:
         self._fields = meta_df.ImsField.tolist()
         self.voltages = (meta_df.ImsField*old_drift_tube_length).tolist()
         self._arrival_time = meta_df.dt.tolist()
-        self.mass = adduct_mass
+        self.mz = adduct_mass
+        self.charge_state = charge_state
 
         # params['temp'] = df.ImsTemperature.tolist()
         # params['pressures'] = df.ImsPressure.tolist()
@@ -60,7 +61,7 @@ class SteppedFieldCCS:
         # params['arrival_time'] = df.dt.tolist()
         # params['neutral_mass'] = config_params['neutral_mass']
         # params['drift_tube_length'] = config_params['drift_tube_length']
-        # params['mass'] = ion_mz
+        # params['mz'] = ion_mz
 
     @property
     def r2(self):
@@ -133,7 +134,7 @@ class SteppedFieldCCS:
         # ========================
         # 1.60217657E-19 or 1.6021766208E-19
         e = 1.6021766208E-19
-        charge_state = 1
+        charge_state = self.charge_state
         boltzmann_constant = 1.38064852E-23
         N0 = 101325/boltzmann_constant/273.15 # N0_(m-3)
         # ========================
@@ -143,7 +144,7 @@ class SteppedFieldCCS:
         self._p_v = P_torr / Vcell
         # E/N (Td) = E / P(torr) / 0.3535
         E_N = (E / P_torr) / 0.3535
-        mass_in_kg = self.mass * 1.66054E-27
+        mass_in_kg = self.mz * self.charge_state * 1.66054E-27
         neutral_mass_in_kg = neutral_mass * 1.66054E-27
         reduced_mass_in_kg = (mass_in_kg * neutral_mass_in_kg / (mass_in_kg + neutral_mass_in_kg))
         # ========================
@@ -156,7 +157,7 @@ class SteppedFieldCCS:
         # ccs = 3 * e / 16 / N0 * np.sqrt(2 * np.pi / reduced_mass_in_kg / boltzmann_constant / T_K) \
         # * drift_time * 760 * T_K * Vcell / (drift_tube_length / 100)**2 / P_torr / 273.15 * 1E20
         K0 = drift_tube_length * drift_tube_length / slope * 273.15 / 760 / np.mean(T_K)
-        ccs = 3 * e / 16 / N0 / K0 / 0.0001 * np.sqrt(2 * np.pi / (boltzmann_constant * reduced_mass_in_kg * np.mean(T_K))) * 1e20
+        ccs = 3 * charge_state * e / 16 / N0 / K0 / 0.0001 * np.sqrt(2 * np.pi / (boltzmann_constant * reduced_mass_in_kg * np.mean(T_K))) * 1e20
         properties = {'slope': slope, 'intercept': intercept, 'r2': r_value**2, 'p_value':p_value, 'k0':K0, 'ccs':ccs}
         for p in properties: self._metadata[p] = properties[p]
     

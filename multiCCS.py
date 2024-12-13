@@ -1,12 +1,10 @@
 '''compute CCS in multi-step experiments
 '''
-import pandas as pd
-import numpy as np
-
-import xml.etree.ElementTree
+import traceback
 import time
 import glob
 import os
+from pathlib import Path
 
 from sys import platform as sys_pf
 if sys_pf == 'darwin':
@@ -17,7 +15,6 @@ import seaborn as sns
 
 from utils import *
 
-from compute_ccs import SteppedFieldCCS
 from shortest_for_ccs import get_possible_ccs_values
 
 import argparse
@@ -134,9 +131,9 @@ def get_adducts(exact_mass, adducts):
             name = '[M'+c+adduct['name']+']' if abs(charge)>1 else '[M'+c[0]+adduct['name']+']'
             mass = (exact_mass + charge * adduct['mass'])/abs(charge)
             if charge > 0:
-                adducts2mass['pos'][name] = mass
+                adducts2mass['pos'][name] = (mass, charge)
             elif charge < 0:
-                adducts2mass['neg'][name] = mass
+                adducts2mass['neg'][name] = (mass, charge)
     return adducts2mass
 
 
@@ -146,14 +143,18 @@ def get_features(file, max_normalize=True, fformat='cef'):
     else: print('File format: {0}. This tool doesn\'t support this file format.'.format(fformat))
     return None, None
 
-def get_adducts_colors():
-    return {'[M+.]':'m',
-            '[M+H]':'b',
-            '[M+2H]':'c',
-            '[M+Na]':'r',
-            '[M+K]':'g',
-            '[M-H]':'y'}
-        
+def get_adducts_colors(adduct):
+    colors = {'[M+.]':'m',
+        '[M+H]':'b',
+        '[M+2H]':'c',
+        '[M+Na]':'r',
+        '[M+K]':'g',
+        '[M-H]':'y'}
+    if adduct in colors:
+        return colors[adduct]
+    else:
+        return 'k'
+
 def is_in_tolerance(x, mass, ppm):
     delta = mass * ppm * 1.0e-6
     #print(mass, delta, mass-delta, mass+delta)
@@ -162,8 +163,8 @@ def is_in_tolerance(x, mass, ppm):
 def mass_error(x, mass):
     return abs(x - mass) / mass * 1e6
 
-def find_features_maxint(features, metadata, ion_mz, ppm):
-    df = features[is_in_tolerance(features.mass, ion_mz, ppm)]
+def find_features_maxint(features, metadata, ion_mz, z, ppm):
+    df = features[is_in_tolerance(features.mz, ion_mz, ppm) & (features.z==z)]
     if df.shape[0] == 0: return df
     
     #  if 'frame' column in metadata, delete it
@@ -174,13 +175,15 @@ def find_features_maxint(features, metadata, ion_mz, ppm):
     df = df.sort_values(by='frame')
     return df
 
-def find_features(features, metadata, ion_mz, ppm,
+def find_features(features, metadata, ion_mz, z, ppm,
                   threshold_num_isotopes=2,
                   threshold_intensity_rank=3):
     if 'num_isotopes' in features.columns:
-        df = features[is_in_tolerance(features.mass, ion_mz, ppm) & (features.num_isotopes>=threshold_num_isotopes)]
+        df = features[is_in_tolerance(features.mz, ion_mz, ppm) & \
+            (features.z==z) & \
+            (features.num_isotopes>=threshold_num_isotopes)]
     else:
-        df = features[is_in_tolerance(features.mass, ion_mz, ppm)]
+        df = features[is_in_tolerance(features.mz, ion_mz, ppm) & (features.z==z)]
     if df.shape[0] == 0: return df
     
     # filter out small peaks by ranking threshold
@@ -296,10 +299,10 @@ def get_ccs(FLAGS, comp_id, target_list, config_params):
     if unique_target_info.shape[0] > 1:
         print("[ERROR] There are more than one targets for this comp_id. comp_id:{}, and unique_target_info:".format(comp_id))
         print(unique_target_info)
-    compound_id = unique_target_info.iloc[0].CompID
+    compound_id = unique_target_info.iloc[0].CompoundID
     exact_mass = unique_target_info.iloc[0].ExactMass
     ionization = unique_target_info.iloc[0].Ionization
-    neutral_name = unique_target_info.iloc[0].NeutralName
+    neutral_name = unique_target_info.iloc[0].CompoundName
 
     print(compound_id, neutral_name, ionization, exact_mass)
 
@@ -375,13 +378,13 @@ def get_ccs(FLAGS, comp_id, target_list, config_params):
             print("features size:", features.shape)
 
             for adduct in adducts:
-                adduct_mass = adducts[adduct]
+                adduct_mass, charge_state = adducts[adduct]
                 start_time = time.time()
                 
                 if (FLAGS.maxint):
-                    ccs_features_within_mz = find_features_maxint(features, metadata, adduct_mass, config_params['mz_tolerance'])
+                    ccs_features_within_mz = find_features_maxint(features, metadata, adduct_mass, abs(charge_state), config_params['mz_tolerance'])
                 else:
-                    ccs_features_within_mz = find_features(features, metadata, adduct_mass, config_params['mz_tolerance'],
+                    ccs_features_within_mz = find_features(features, metadata, adduct_mass, abs(charge_state), config_params['mz_tolerance'],
                                                        threshold_num_isotopes=FLAGS.num_isotopes_threshold,
                                                        threshold_intensity_rank=FLAGS.intensity_rank_threshold)
 
@@ -394,6 +397,7 @@ def get_ccs(FLAGS, comp_id, target_list, config_params):
 
                     ccs_list = get_possible_ccs_values(ccs_features_within_mz,
                                                        adduct_mass,
+                                                       abs(charge_state),
                                                        old_drift_tube_length=config_params['old_drift_tube_length'],
                                                        drift_tube_length=config_params['drift_tube_length'],
                                                        neutral_mass=config_params['neutral_mass'],
@@ -413,7 +417,6 @@ def get_ccs(FLAGS, comp_id, target_list, config_params):
                             ccs_prop['adduct'] = adduct
                             ccs_prop['replicate'] = rep_file
                             ccs_prop['name'] = neutral_name
-                            # ccs_prop['CAS'] = list(target_info.CAS)[0]
                             ccs_results.append(ccs_prop)
 
                         if num_reps == 1:
@@ -428,7 +431,7 @@ def get_ccs(FLAGS, comp_id, target_list, config_params):
                             adduct_mass,
                             ccs_features_within_mz,
                             ccs_list,
-                            title=rep_file.rsplit("/", 1)[1],
+                            title=Path(rep_file).name,
                             drift_tube_length=config_params['drift_tube_length'])
                         is_filled[adduct] = True
                         ##################################################
@@ -447,6 +450,7 @@ def get_ccs(FLAGS, comp_id, target_list, config_params):
 
         ##################################################
     except Exception as e:
+        traceback.print_exc()
         if hasattr(e, 'strerror'):
             print ("[ERROR]: {0} ({1})".format(e.strerror, rep_file))
         else:
@@ -464,7 +468,7 @@ def compute(df, ion_mz, config_params):
     params['arrival_time'] = df.dt.tolist()
     params['neutral_mass'] = config_params['neutral_mass']
     params['drift_tube_length'] = config_params['drift_tube_length']
-    params['mass'] = ion_mz
+    params['mz'] = ion_mz
     # print(params)
     ccs, prop = SteppedFieldCCS(params=params).compute()
     # print("CCS:", ccs)
@@ -473,7 +477,7 @@ def compute(df, ion_mz, config_params):
 def plot_ccs_regression_lines(axis, adduct, adduct_mass, df, prop, title, drift_tube_length=78.236):
     
     addmass = adduct_mass
-    color = get_adducts_colors()[adduct]
+    color = get_adducts_colors(adduct)
 
     p_v = df.ImsPressure / (df.ImsField * drift_tube_length)
     
@@ -487,7 +491,7 @@ def plot_ccs_regression_lines(axis, adduct, adduct_mass, df, prop, title, drift_
     for r in df.itertuples():
         axis.text((r.ImsPressure / (r.ImsField * drift_tube_length) + (p_vmax - p_vmin)/7), r.dt,
                   # '{0:.3f}ppm, {1:.2f}(z_score={2:.3f})'.format(mass_error(r.mass, addmass), r.intensity, r.intensity_z),
-                  '{0:.3f}ppm, z_score={1:.2f}'.format(mass_error(r.mass, addmass), r.intensity_z),
+                  '{0:.3f}ppm, z_score={1:.2f}'.format(mass_error(r.mz, addmass), r.intensity_z),
                   color='k', fontsize=10)
 
     axis.plot(p_v, 1000 * (prop['intercept'] + prop['slope']*p_v), 'r', label='fitted line')
@@ -513,7 +517,7 @@ def plot_ccs_regression_lines2(
                     title,
                     drift_tube_length):
     addmass = adduct_mass
-    color = get_adducts_colors()[adduct]
+    color = get_adducts_colors(adduct)
 
     p_v = df.ImsPressure / (df.ImsField * drift_tube_length)
     
@@ -554,16 +558,15 @@ def plot_ccs_regression_lines2(
 
 def plot_intensity_distribution(features, adducts_mass, ax, ppm=50):
     if features.shape[0] > 0:
-        colors = get_adducts_colors()
         ddata = np.log(features.intensity_org)
         g = sns.kdeplot(ddata, shade=True, color="b", ax=ax)
         ax.axvline(np.log(np.median(features.intensity_org)), linestyle=':')
         ax.axvline(np.log(10*np.median(features.intensity_org)), linestyle=':')
         ax.axvline(np.log(np.mean(features.intensity_org)+2*np.std(features.intensity_org)), linestyle='-.')
         for adduct in adducts_mass:
-            sel = features[is_in_tolerance(features.mass, adducts_mass[adduct], ppm)]
+            sel = features[is_in_tolerance(features.mz, adducts_mass[adduct][0], ppm)]
             if sel.shape[0] > 0:
-                ax.scatter(np.log(sel['intensity_org']), np.zeros(sel.shape[0]), c=colors[adduct])
+                ax.scatter(np.log(sel['intensity_org']), np.zeros(sel.shape[0]), c=get_adducts_colors(adduct))
         ax.set_xlabel('log(Intensity)')
         ax.set_ylabel('Density')
         ax.set_xlim([np.min(ddata), np.max(ddata)])
@@ -619,10 +622,10 @@ def multi(FLAGS, config_params):
     else: target_list = pd.read_csv(FLAGS.target_list_file, sep='\t')
     num_targets = target_list.shape[0]
     
-    target_list = pd.concat([target_list]*2,ignore_index=True)
     if "Ionization" not in target_list.columns:
+        target_list = pd.concat([target_list]*2, ignore_index=True)
         target_list['Ionization'] = ['pos']*num_targets+['neg']*num_targets
-    target_list['ID']= target_list.CompID.str.cat("_"+target_list.Ionization)
+    target_list['ID']= target_list.CompoundID.str.cat("_"+target_list.Ionization)
     target_list = target_list.fillna(method='ffill')
 
     # find RawFileName
@@ -642,7 +645,7 @@ def multi(FLAGS, config_params):
                         _ion = 'pos'
                     else:
                         _ion = 'neg'
-                    # print(_f, uid, _ion)
+                    print(_f, uid, _ion)
                     # prefix of file names
                     filename = os.path.basename(_f).split(suffix_header)[0]
                     framemeta_name = ""
@@ -651,8 +654,8 @@ def multi(FLAGS, config_params):
                             framemeta_name = framemeta
                     prefix = _f.split(suffix_header)[0]
                     uniqueIDs_list.append({'RawFileName':prefix, 'FrameMetaName':framemeta_name, 'uid':uid, 'ionizations':_ion})
-                    break
-
+                    # break
+        print(uniqueIDs_list)
         tdf = pd.DataFrame(uniqueIDs_list).drop_duplicates()
         target_list = target_list.merge(tdf, left_on=['Ionization','UniqueID4DfileNames'], right_on=['ionizations','uid'])
         del target_list['ionizations']
@@ -661,14 +664,14 @@ def multi(FLAGS, config_params):
     # target_list.to_csv('temp.csv')
 
     ## e.g., S00001.b if you have a same compound id but different versions.
-    # num_comp = list(pd.DataFrame(target_list.CompID.str.split('\.').tolist(), columns = ['CompID','ver']).CompID.drop_duplicates())
+    # num_comp = list(pd.DataFrame(target_list.CompoundID.str.split('\.').tolist(), columns = ['CompoundID','ver']).CompoundID.drop_duplicates())
     compound_ids = target_list.ID.drop_duplicates().tolist()
     num_pos = (target_list.drop_duplicates(subset='ID').Ionization=='pos').sum()
     num_neg = (target_list.drop_duplicates(subset='ID').Ionization=='neg').sum()
     
     # compounds
     assert len(compound_ids) == num_pos+num_neg,\
-        "Please check if there are duplicates in CompID and its Ionization"
+        "Please check if there are duplicates in CompoundID and its Ionization"
     print('Number of compounds: {0} (pos:{1}, neg:{2})'.format(len(compound_ids), num_pos, num_neg))
     print(compound_ids)
 
